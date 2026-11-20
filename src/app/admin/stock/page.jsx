@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS, canReadStockNegotiation, isSalesRole } from '../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, canReadStockNegotiation, canReadCapitalHistory, isSalesRole } from '../../../utils/adminPermissions';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
@@ -441,7 +441,7 @@ function StockInventoryPage() {
                     }
                 />
 
-                {canSeeCosts && !['mandatos', 'negotiation'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} />}
+                {canSeeCosts && !['mandatos', 'negotiation'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} showCapitalHistory={canReadCapitalHistory(user)} />}
 
                 <div className="flex flex-col">
                     <StockFilters

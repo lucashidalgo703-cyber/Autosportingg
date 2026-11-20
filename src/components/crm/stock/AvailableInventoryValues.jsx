@@ -68,12 +68,13 @@ function MetricCard({ scope, metrics, onBreakdown, subtotal = false }) {
     </section>;
 }
 
-export default function AvailableInventoryValues({ metrics, filteredMetrics, hasFilter = false }) {
+export default function AvailableInventoryValues({ metrics, filteredMetrics, hasFilter = false, showCapitalHistory = false }) {
     const [detail, setDetail] = useState(null);
     if (!metrics) return null;
     const show = (scope, currency, ownershipType, filtered = false) => setDetail({ scope, currency, ownershipType, filtered });
     return <div className="space-y-4">
         <p className="m-0 text-xs text-crm-fg-muted">Ambos bloques corresponden a las mismas {metrics.count} unidades con estado operativo Disponible. La publicación en la web no define su disponibilidad. ARS y USD se conservan separados.</p>
+        {showCapitalHistory && <p className="m-0 rounded-lg border border-crm-border bg-crm-surface p-3 text-xs text-crm-fg-muted">Estos valores corresponden al inventario. El total a costo incluye AutoSporting e inversores; tu participación está en «Mi parte · AutoSporting». <Link href="/admin/capital-mensual" className="font-semibold text-blue-400 underline">Capital mensual</Link> agrega caja y cartera y descuenta obligaciones para mostrar el capital propio de la agencia.</p>}
         <div className="grid gap-4 xl:grid-cols-2">{['cost', 'asking'].map(scope => <MetricCard key={scope} scope={scope} metrics={metrics} onBreakdown={show} />)}</div>
         {hasFilter && filteredMetrics && <details className="rounded-xl border border-crm-border bg-crm-bg p-4"><summary className="cursor-pointer text-sm font-semibold text-crm-fg">Subtotal del filtro · {filteredMetrics.count} de {metrics.count} disponibles</summary><div className="mt-4 grid gap-4 xl:grid-cols-2">{['cost', 'asking'].map(scope => <MetricCard key={scope} scope={scope} metrics={filteredMetrics} subtotal onBreakdown={(kind, currency, ownershipType) => show(kind, currency, ownershipType, true)} />)}</div></details>}
         {detail && <ValueBreakdown scope={detail.scope} currency={detail.currency} ownershipType={detail.ownershipType} metrics={detail.filtered ? filteredMetrics : metrics} onClose={() => setDetail(null)} />}

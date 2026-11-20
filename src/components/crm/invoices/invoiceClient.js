@@ -12,6 +12,24 @@ export const invoiceMoment = value => {
 };
 export const invoiceNumber = entry => `${entry.invoiceType || 'Factura'} ${entry.pointOfSale || ''}-${entry.invoiceNumber || ''}`;
 export const unwrapInvoice = data => data?.invoice || data;
+const invoiceFileExtensions = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+export function validateInvoiceFileSelection(file) {
+    if (!file) return null;
+    const type = String(file.type || '').toLowerCase();
+    const unspecifiedType = !type || type === 'application/octet-stream';
+    // Mobile file providers sometimes omit MIME. An allowed extension lets the
+    // selection proceed; the server still identifies the actual uploaded bytes.
+    if (!Object.hasOwn(invoiceFileExtensions, type) && !(unspecifiedType && /\.(?:pdf|jpe?g|png|webp)$/i.test(file.name || ''))) {
+        throw new Error('Elegí un PDF o una imagen JPG, PNG o WebP.');
+    }
+    if (!Number.isFinite(file.size) || file.size <= 0 || file.size > 3 * 1024 * 1024) throw new Error('El archivo debe pesar hasta 3 MB y no estar vacío.');
+    return file;
+}
+export function invoiceDownloadFileName(file, fallback = 'factura') {
+    const extension = invoiceFileExtensions[file?.mimeType];
+    const base = String(file?.fileName || fallback).replace(/[\x00-\x1f\x7f/\\"']/g, '_').replace(/\.[^.]{1,12}$/, '').slice(0, 140) || 'factura';
+    return extension ? base + '.' + extension : base;
+}
 const expire = status => { if (status === 401 && typeof window !== 'undefined') window.dispatchEvent(new Event('autosporting-auth-expired')); };
 
 export async function invoiceRequest(path = '', { method = 'GET', body, signal, key } = {}) {
@@ -70,6 +88,6 @@ export async function downloadInvoiceFile(entry) {
     const response = await fetch(access.url, { cache: 'no-store', credentials: 'same-origin', referrerPolicy: 'no-referrer' });
     if (!response.ok) throw new Error('No se pudo descargar la factura. Volvé a abrir el registro para renovar su acceso.');
     const blob = await response.blob(), url = URL.createObjectURL(blob), anchor = document.createElement('a');
-    anchor.href = url; anchor.download = (entry.file.fileName || `Factura-${entry.invoiceNumber}`).replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 200);
+    anchor.href = url; anchor.download = invoiceDownloadFileName(entry.file, `Factura-${entry.invoiceNumber}`);
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
 }

@@ -47,7 +47,7 @@
     "test:seller:access:browser": "node tests/browser/sellerAccess.browser.mjs",
     "test:roles:access": "node tests/managedRolePermissions.test.js && node tests/integration/managedRoles.integration.test.js",
     "test:roles:access:browser": "node tests/browser/managedRoles.browser.mjs",
-    "test:facturacion": "node tests/integration/vehicleInvoices.integration.test.js",
+    "test:facturacion": "node tests/invoiceFileSelection.test.js && node tests/integration/vehicleInvoices.integration.test.js",
     "test:facturacion:browser": "node tests/browser/vehicleInvoices.browser.mjs",
     "test:stock:plates": "node tests/vehiclePlate.test.js && node tests/integration/negotiationPlate.integration.test.js",
     "test:capital:history": "node tests/capitalHistoryPermissions.test.js && node tests/capitalHistoryView.test.js && node tests/integration/capitalHistory.integration.test.js",

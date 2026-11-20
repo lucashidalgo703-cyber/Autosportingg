@@ -4,7 +4,7 @@ import { CheckCircle2, FileUp, Loader2, Search } from 'lucide-react';
 import CrmModal from '../ui/CrmModal';
 import CrmButton from '../ui/CrmButton';
 import CrmInput from '../ui/CrmInput';
-import { createInvoice, invoiceDate, invoiceId, invoiceMoney, invoiceRequest, unwrapInvoice, uploadInvoiceFile, vehicleName } from './invoiceClient';
+import { createInvoice, invoiceDate, invoiceId, invoiceMoney, invoiceRequest, unwrapInvoice, uploadInvoiceFile, validateInvoiceFileSelection, vehicleName } from './invoiceClient';
 
 const selectClass = 'h-10 w-full rounded-lg border border-crm-border bg-crm-bg px-3 text-base text-crm-fg outline-none focus:ring-2 focus:ring-crm-red/30 md:text-sm';
 export function InvoiceField({ id, label, children }) {
@@ -12,17 +12,15 @@ export function InvoiceField({ id, label, children }) {
 }
 export function InvoiceFileField({ onChange, disabled, file }) {
     return <div className="space-y-2 rounded-xl border border-dashed border-crm-border bg-crm-bg p-3">
-        <InvoiceField id="invoice-file" label="Archivo de la factura"><input id="invoice-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={disabled} onChange={onChange} className="block w-full text-sm text-crm-fg file:mr-2 file:rounded-lg file:border file:border-crm-border file:bg-crm-surface file:px-3 file:py-2 file:text-xs file:font-semibold file:text-crm-fg"/></InvoiceField>
+        <InvoiceField id="invoice-file" label="Archivo de la factura"><input id="invoice-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" disabled={disabled} onChange={onChange} className="block w-full text-sm text-crm-fg file:mr-2 file:rounded-lg file:border file:border-crm-border file:bg-crm-surface file:px-3 file:py-2 file:text-xs file:font-semibold file:text-crm-fg"/></InvoiceField>
         <p className="text-xs text-crm-fg-muted">PDF o imagen JPG, PNG o WebP. Máximo 3 MB.</p>
+        <p className="text-xs text-crm-fg-muted">Si la foto está en HEIC, exportala como JPG o PDF antes de cargarla.</p>
         {file && <p className="break-all text-xs text-crm-fg"><FileUp size={14} className="mr-1 inline"/>{file.name} · {(file.size / 1024).toLocaleString('es-AR', { maximumFractionDigits: 0 })} KB</p>}
     </div>;
 }
 export function readInvoiceFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return null;
-    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { event.target.value = ''; throw new Error('Elegí un PDF o una imagen JPG, PNG o WebP.'); }
-    if (file.size <= 0 || file.size > 3 * 1024 * 1024) { event.target.value = ''; throw new Error('El archivo debe pesar hasta 3 MB y no estar vacío.'); }
-    return file;
+    try { return validateInvoiceFileSelection(event.target.files?.[0]); }
+    catch (error) { event.target.value = ''; throw error; }
 }
 export function UploadProgress({ progress }) {
     return <div role="status" className="space-y-2"><p className="text-sm text-crm-fg-muted">{progress < 95 ? `Subiendo archivo: ${progress}%` : 'Confirmando recepción…'}</p><progress max="100" value={progress} aria-label="Progreso de carga" className="h-2 w-full accent-red-600"/></div>;
@@ -61,7 +59,7 @@ export default function InvoiceFormModal({ entry, direction, onClose, onSaved, o
             totalAmount: value.amount ?? '', currency: value.currency || 'ARS' }));
     };
     const change = event => { key.current = null; setError(''); setForm(previous => ({ ...previous, [event.target.name]: event.target.value })); };
-    const chooseFile = event => { try { setFile(readInvoiceFile(event)); fileKey.current = null; setError(''); } catch (cause) { setError(cause.message); } };
+    const chooseFile = event => { fileKey.current = null; try { setFile(readInvoiceFile(event)); setError(''); } catch (cause) { setFile(null); setError(cause.message); } };
     const save = async event => {
         event.preventDefault(); if (busy.current) return;
         if (!editing && !created && !operation) { setError('Seleccioná la compra o venta que corresponde a esta factura.'); return; }
@@ -136,7 +134,7 @@ export function InvoiceAttachmentModal({ entry, onClose, onSaved }) {
     const [file, setFile] = useState(null), [saving, setSaving] = useState(false), [progress, setProgress] = useState(0), [error, setError] = useState('');
     const busy = useRef(false), key = useRef(null);
     const close = () => { if (!busy.current) onClose(); };
-    const choose = event => { try { setFile(readInvoiceFile(event)); key.current = null; setError(''); } catch (cause) { setError(cause.message); } };
+    const choose = event => { key.current = null; try { setFile(readInvoiceFile(event)); setError(''); } catch (cause) { setFile(null); setError(cause.message); } };
     const upload = async event => {
         event.preventDefault(); if (!file || busy.current) return;
         busy.current = true; setSaving(true); setError(''); setProgress(0); key.current ||= crypto.randomUUID();

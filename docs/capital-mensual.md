@@ -4,6 +4,10 @@ Disponible en **Capital mensual** (`/admin/capital-mensual`) únicamente para el
 
 Se reutiliza `getCapitalSummary`: stock propio disponible a costo + caja y bancos reales + cartera propia pendiente − egresos pendientes − pagos registrados sin cuenta y sin débito aplicado. ARS y USD se conservan separados. La opción a precio publicado sustituye sólo la valuación del stock; es una estimación comercial distinta del capital a costo. No se duplican cajas virtuales ni se incluyen como propios los vehículos de terceros o las participaciones de socios.
 
+**Cómo coincide con Stock** muestra el inventario global Disponible leído en la misma transacción que el capital actual: total del bloque de Stock, inversores, terceros y participación sin distribuir, seguido de la parte de AutoSporting y los componentes que llevan al capital propio. El total de Stock a costo incluye inversores; el publicado también incluye terceros. El costo de consignaciones y terceros queda excluido y se identifica aparte. La comparación sólo agrega valores anónimos a la consulta en vivo; no cambia la fórmula ni añade campos o recalcula observaciones anteriores. Los filtros y la paginación de Stock no modifican esta comparación global.
+
+El criterio predeterminado y recomendado para seguir el capital registrado es costo; el publicado se identifica como escenario comercial. Se aclara que la variación patrimonial puede incluir aportes/retiros y cambios nominales por inflación, y no representa por sí sola la rentabilidad del negocio.
+
 Las observaciones guardan agregados, versión de fórmula, origen, calidad y fecha argentina; no copian fichas de clientes, vehículos, cuentas o cuotas. Una transacción lee los componentes sobre una misma vista de MongoDB y guarda una observación inmutable. El mes conserva una referencia a su observación más reciente. Los meses anteriores no se recalculan por cambios posteriores en compras, precios, gastos, saldos o cobros.
 
 Si cambia el criterio de valuación o la ecuación de capital, debe incrementarse `CAPITAL_HISTORY_FORMULA`; el historial conserva sus valores y evita comparar versiones incompatibles.

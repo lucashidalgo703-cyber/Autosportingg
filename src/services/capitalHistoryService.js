@@ -54,6 +54,15 @@ export function compactCapitalSummary(summary) {
     };
     return { formulaVersion: CAPITAL_HISTORY_FORMULA, totalsByCurrency: summary.totalsByCurrency, components, quality };
 }
+// A live comparison of the same unfiltered inventory read, not another
+// valuation or a new historical field. Only aggregate values leave this service.
+function currentStockComparison(metrics) {
+    const fields = ['cost', 'ownCost', 'investorCost', 'thirdPartyCost', 'unallocatedCost',
+        'asking', 'ownAsking', 'investorAsking', 'thirdPartyAsking', 'unallocatedAsking'];
+    return { scope: 'available-global', count: metrics.count,
+        ...Object.fromEntries(fields.map(field => [field, metrics[field]])),
+        completeness: metrics.completeness };
+}
 const observationDto = (doc, currentPeriod) => ({ id: String(doc._id), period: doc.period,
     status: doc.period < currentPeriod ? 'closed' : 'recorded', capturedAt: doc.capturedAt, source: doc.source,
     sourceLabel: doc.source === 'cron' ? 'Registro automático' : 'Registro manual del propietario',
@@ -135,13 +144,15 @@ export async function queryCapitalHistory(user, filters = {}, { now } = {}) {
     const session = await mongoose.startSession(); let result;
     try {
         await session.withTransaction(async () => {
-            const current = compactCapitalSummary(await getCapitalSummary({ session, cutoffDate: instant }));
+            const currentSummary = await getCapitalSummary({ session, cutoffDate: instant });
+            const current = compactCapitalSummary(currentSummary);
             const rows = await CapitalMonth.find({ _id: { $gte: from, $lte: to } }).session(session).lean();
             const observations = await CapitalObservation.find({ _id: { $in: rows.map(row => row.observationId) } }).session(session).lean();
             const byId = new Map(observations.map(row => [row._id, row])), byPeriod = new Map(rows.map(row => [row._id, row]));
             const first = await CapitalMonth.findOne({}).sort({ _id: 1 }).session(session).lean();
             result = { timezone: CAPITAL_HISTORY_TIMEZONE, formulaVersion: CAPITAL_HISTORY_FORMULA,
-                current: { period: currentPeriod, status: 'current', source: 'live', asOf: instant, ...current },
+                current: { period: currentPeriod, status: 'current', source: 'live', asOf: instant, ...current,
+                    stockComparison: currentStockComparison(currentSummary.availableMetrics) },
                 months: periods.map(period => {
                     const row = byPeriod.get(period), observation = row ? byId.get(row.observationId) : null;
                     return observation?.period === period ? { ...observationDto(observation, currentPeriod), revision: row.revision }

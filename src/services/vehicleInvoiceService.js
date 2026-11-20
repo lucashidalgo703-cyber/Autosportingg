@@ -209,7 +209,13 @@ export async function editVehicleInvoice(user, id, input, key, req) {
 export async function uploadVehicleInvoiceFile(user, id, input, file, key, req) {
     authorize(user, true);
     if (!validId(id)) fail('Factura no encontrada.', 404);
-    const revision = positiveRevision(input.revision), inspected = inspectPortalUpload(file);
+    const revision = positiveRevision(input.revision);
+    let inspected;
+    try { inspected = inspectPortalUpload(file); }
+    catch (error) {
+        if (error.status === 400) fail('Subí un PDF o una imagen JPG, PNG o WebP válida.');
+        throw error;
+    }
     if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(inspected.mimeType)) fail('Subí un PDF o una imagen JPG, PNG o WebP.');
     const fileName = clean(file.originalname || 'factura', 180).replace(/[\x00-\x1f\x7f/\\"']/g, '_');
     return mutation(user, 'file:' + id, key, hash({ revision, fileHash: inspected.fileHash, fileName }), req, async session => {

@@ -19,7 +19,7 @@ const contexts = [], errors = [], start = Math.max(1, Number(process.env.QA_STAR
 const selectedGroups = process.env.QA_GROUPS ? new Set(process.env.QA_GROUPS.split(',').map(Number)) : null;
 const test = async (name, callback) => { if (++group < start || selectedGroups && !selectedGroups.has(group)) { console.log(`skip ${group} - ${name}`); return; } await callback(); console.log(`ok ${++passed} - ${name}`); };
 try {
-    const { seedVehicleInvoices, invoicePdf } = await import('../fixtures/vehicleInvoicesFixtures.js');
+    const { seedVehicleInvoices, invoicePdf, invoiceJpeg } = await import('../fixtures/vehicleInvoicesFixtures.js');
     const f = await seedVehicleInvoices(env.models);
     process.env.NODE_ENV = 'development'; process.env.NEXT_PUBLIC_API_URL = base; delete process.env.TURBOPACK;
     const next = (await import('next')).default;
@@ -31,6 +31,10 @@ try {
         void nextHandler(request, response).catch(() => { if (!response.headersSent) response.writeHead(500); response.end('Error en prueba aislada.'); });
     });
     await new Promise(resolve => server.listen(port, host, resolve));
+    // Cold development compilation can take longer than an API assertion. Warm
+    // this page before starting browser expectations so those measure the CRM.
+    const warmed = await fetch(base + '/admin/facturacion', { signal: AbortSignal.timeout(180000) });
+    assert.equal(warmed.status, 200);
     browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
         args: ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
     const goto = async (page, route) => {
@@ -81,11 +85,13 @@ try {
             assert.equal(await dialog.getByLabel('Moneda', { exact: true }).inputValue(), direction === 'sale' ? 'ARS' : 'USD');
             await dialog.getByLabel('Nombre / razón social', { exact: true }).fill(direction === 'sale' ? 'Comprador A QA' : 'Proveedor ficticio QA');
             await dialog.getByLabel('CUIT / identificación fiscal', { exact: true }).fill(direction === 'sale' ? '20123456789' : '30987654321');
-            await dialog.getByLabel('Archivo de la factura', { exact: true }).setInputFiles({ name: 'factura-qa.pdf', mimeType: 'application/pdf', buffer: invoicePdf });
+            await dialog.getByLabel('Archivo de la factura', { exact: true }).setInputFiles(width < 768
+                ? { name: 'factura-qa.JPEG', mimeType: '', buffer: invoiceJpeg }
+                : { name: 'factura-qa.pdf', mimeType: 'application/pdf', buffer: invoicePdf });
             const saved = page.waitForResponse(invoiceResponse); await dialog.getByRole('button', { name: 'Guardar factura', exact: true }).click();
             assert.ok([200, 201].includes((await saved).status())); await dialog.waitFor({ state: 'hidden' });
             const cards = page.locator('[data-invoice-id]'); await cards.first().waitFor();
-            await page.waitForFunction(() => [...document.querySelectorAll('[data-invoice-id]')].some(element => element.textContent.includes('PDF') || element.querySelector('button[title]')));
+            await page.waitForFunction(() => [...document.querySelectorAll('[data-invoice-id]')].some(element => /PDF adjunto|Imagen adjunta/.test(element.textContent)));
             await auth(current); assert.deepEqual(current.responses.filter(response => [401, 403].includes(response.status)), []);
             await capture(page, index === 1 ? 'facturacion-propietario-escritorio.png' : 'facturacion-maia-celular.png');
             console.log(`QA: invoice ${direction} registered from ${width < 768 ? 'mobile' : 'desktop'} without finance mutations.`);
@@ -118,6 +124,11 @@ try {
             ctx.font = '20px sans-serif'; for (const [index, line] of ['DOCUMENTO FICTICIO QA', 'Compra de vehiculo', 'Moneda: USD', 'Importe: 14.000', 'Solo para verificar la vista previa'].entries()) ctx.fillText(line, 35, 250 + index * 55);
             return canvas.toDataURL('image/png').split(',')[1];
         }), 'base64');
+        await replace.getByLabel('Archivo de la factura', { exact: true }).setInputFiles({ name: 'factura-qa.png', mimeType: 'image/png', buffer: png });
+        await replace.getByLabel('Archivo de la factura', { exact: true }).setInputFiles({ name: 'archivo-incorrecto.txt', mimeType: 'text/plain', buffer: Buffer.from('no es una factura') });
+        await replace.getByRole('alert').getByText('Elegí un PDF o una imagen JPG, PNG o WebP.', { exact: true }).waitFor();
+        assert.equal(await replace.getByRole('button', { name: 'Subir archivo', exact: true }).isDisabled(), true, 'An invalid reselection clears the previous invoice attachment');
+        assert.equal(await replace.getByText(/factura-qa.png ·/).count(), 0);
         await replace.getByLabel('Archivo de la factura', { exact: true }).setInputFiles({ name: 'factura-qa.png', mimeType: 'image/png', buffer: png });
         const response = page.waitForResponse(value => /\/file$/.test(new URL(value.url()).pathname) && value.request().method() === 'POST');
         await replace.getByRole('button', { name: 'Subir archivo', exact: true }).click(); assert.ok([200, 201].includes((await response).status())); await replace.waitFor({ state: 'hidden' });

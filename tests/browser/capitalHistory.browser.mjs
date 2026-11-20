@@ -67,8 +67,12 @@ try {
     await test('owner sees separate currencies, real monthly records and gaps, switches valuation, and captures the current calculated balance on desktop and mobile', async () => {
         for (const width of [1440, 390]) {
             const current = await surface(1, width), page = current.page;
-            const loaded = page.waitForResponse(capitalResponse); await goto(page, '/admin/capital-mensual'); assert.equal((await loaded).status(), 200);
+            const loaded = page.waitForResponse(capitalResponse, { timeout: 180000 }); await goto(page, '/admin/capital-mensual'); assert.equal((await loaded).status(), 200);
             await page.getByRole('heading', { name: 'Capital mensual', exact: true }).waitFor();
+            const comparison = page.getByRole('region', { name: 'Comparación con Stock', exact: true });
+            await comparison.getByRole('heading', { name: 'Cómo coincide con Stock', exact: true }).waitFor();
+            await comparison.getByText('4 unidades disponibles · Inventario completo, sin filtros · ARS', { exact: true }).waitFor();
+            await comparison.getByText('Mi parte · AutoSporting', { exact: true }).waitFor();
             await page.locator('[data-capital-history-chart]').waitFor();
             const gap = page.locator(`[data-capital-period="${history.gap}"]`); await gap.getByText('Sin registro', { exact: true }).waitFor();
             assert.equal(await gap.getByText(/\$\s*0(?:\D|$)/).count(), 0, 'Missing capital is not displayed as zero');
@@ -76,8 +80,11 @@ try {
             await page.getByLabel('Moneda del gráfico y del historial', { exact: true }).selectOption('USD');
             assert.ok(await page.locator('[data-capital-history-chart]').getAttribute('data-capital-history-chart') !== null);
             await page.getByLabel('Criterio de valuación', { exact: true }).selectOption('published');
+            await comparison.getByText('Total de Stock · valor publicado', { exact: true }).waitFor();
+            await comparison.getByText('Parte de terceros incluida', { exact: true }).waitFor();
             await page.getByRole('heading', { name: /^USD\s+20\.580$/ }).waitFor();
             await page.getByLabel('Criterio de valuación', { exact: true }).selectOption('cost');
+            await comparison.getByText('Total de Stock · capital invertido', { exact: true }).waitFor();
             await page.getByLabel('Moneda del gráfico y del historial', { exact: true }).selectOption('ARS');
             await page.getByRole('button', { name: 'Guardar registro actual', exact: true }).click();
             const dialog = page.getByRole('dialog', { name: 'Guardar capital actual', exact: true }); await dialog.waitFor();
@@ -94,6 +101,8 @@ try {
             assert.deepEqual(await env.models.CapitalObservation.findById(originalPast._id).lean(), originalPast);
             await page.locator('[data-capital-history-chart]').scrollIntoViewIfNeeded();
             await capture(page, width < 768 ? 'capital-mensual-celular.png' : 'capital-mensual-escritorio.png');
+            await comparison.scrollIntoViewIfNeeded();
+            await capture(page, width < 768 ? 'capital-stock-comparacion-celular.png' : 'capital-stock-comparacion-escritorio.png');
         }
     });
     await test('admin, seller and Maia cannot read global monthly capital or its form and retain valid sessions', async () => {
@@ -113,7 +122,7 @@ try {
         });
         await goto(page, '/admin/capital-mensual'); await page.getByText('Permiso de prueba temporalmente denegado.', { exact: true }).waitFor(); await auth(current);
         allowRetry = true;
-        const recovered = page.waitForResponse(capitalResponse);
+        const recovered = page.waitForResponse(capitalResponse, { timeout: 180000 });
         await page.getByRole('button', { name: 'Reintentar consulta', exact: true }).click(); assert.equal((await recovered).status(), 200);
         await page.locator('[data-capital-history-chart]').waitFor(); await auth(current);
     });

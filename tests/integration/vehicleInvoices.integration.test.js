@@ -9,7 +9,7 @@ globalThis.fetch = async (input, options) => {
 };
 let passed = 0;
 try {
-    const { seedVehicleInvoices, invoicePdf, invoicePng } = await import('../fixtures/vehicleInvoicesFixtures.js');
+    const { seedVehicleInvoices, invoicePdf, invoicePng, invoiceJpeg, invoiceWebp } = await import('../fixtures/vehicleInvoicesFixtures.js');
     const f = await seedVehicleInvoices(env.models), endpoint = '/api/admin/vehicle-invoices';
     const api = (index, method, route, body, headers = {}) => env.call(method, route, body, f.sessions[index].token, headers);
     const check = (response, status, context = '') => assert.equal(response.status, status, context + ' ' + JSON.stringify(response.json));
@@ -26,9 +26,9 @@ try {
     const initialFinance = { transactions: await env.models.Transaction.countDocuments(), account: (await env.models.Account.findById(f.account._id).lean()).balance };
     let saleInvoice, purchaseInvoice, firstSignedUrl;
     const access = (index, invoice, download = false) => api(index, 'POST', `${endpoint}/${idOf(invoice)}/file/access`, { download });
-    async function upload(index, invoice, buffer, headers = key(), revision = invoice.revision) {
+    async function upload(index, invoice, buffer, headers = key(), revision = invoice.revision, file = {}) {
         const form = new FormData();
-        form.set('file', new Blob([buffer], { type: buffer === invoicePng ? 'image/png' : 'application/pdf' }), buffer === invoicePng ? 'factura-qa.png' : 'factura-qa.pdf');
+        form.set('file', new Blob([buffer], { type: file.type ?? (buffer === invoicePng ? 'image/png' : 'application/pdf') }), file.name || (buffer === invoicePng ? 'factura-qa.png' : 'factura-qa.pdf'));
         form.set('revision', String(revision));
         const response = await fetch(`${env.base}${endpoint}/${idOf(invoice)}/file`, { method: 'POST', headers: { Authorization: 'Bearer ' + f.sessions[index].token, ...headers }, body: form });
         return { status: response.status, json: await response.json().catch(() => ({})) };
@@ -117,6 +117,29 @@ try {
         const invalid = await upload(3, saleInvoice, Buffer.from('not a real PDF or image')); check(invalid, 400);
         const view = await access(3, saleInvoice); check(view, 200); const shown = await fetch(env.base + view.json.url);
         assert.equal(shown.status, 200); assert.match(shown.headers.get('content-type') || '', /^image\/png/); assert.deepEqual(Buffer.from(await shown.arrayBuffer()), invoicePng);
+    });
+    await test('all supported invoice formats are detected from their bytes even when the browser omits MIME or supplies a different extension', async () => {
+        for (const [buffer, mimeType, extension] of [[invoicePdf, 'application/pdf', 'pdf'], [invoiceJpeg, 'image/jpeg', 'jpg'],
+            [invoicePng, 'image/png', 'png'], [invoiceWebp, 'image/webp', 'webp']]) {
+            const response = await upload(3, purchaseInvoice, buffer, key(), purchaseInvoice.revision, { type: 'application/octet-stream', name: 'factura-origen.DAT' });
+            check(response, 200); purchaseInvoice = invoiceOf(response); assert.equal(purchaseInvoice.file.mimeType, mimeType);
+            const download = await access(3, purchaseInvoice, true); check(download, 200);
+            const file = await fetch(env.base + download.json.url); assert.equal(file.status, 200);
+            assert.ok((file.headers.get('content-type') || '').startsWith(mimeType));
+            assert.ok((file.headers.get('content-disposition') || '').includes(`filename="factura.${extension}"`));
+            assert.deepEqual(Buffer.from(await file.arrayBuffer()), buffer);
+        }
+    });
+    await test('empty, oversized and unsupported files renamed as PDF cannot replace an existing invoice file', async () => {
+        const previousId = purchaseInvoice.file.id, previousRevision = purchaseInvoice.revision;
+        const beforeFiles = await env.models.VehicleInvoiceFile.countDocuments();
+        for (const [buffer, status] of [[Buffer.alloc(0), 400], [Buffer.from('<html>not a PDF</html>'), 400],
+            [Buffer.from('GIF89a-not-supported'), 400], [Buffer.concat([invoicePdf, Buffer.alloc(3 * 1024 * 1024)]), 413]]) {
+            check(await upload(3, purchaseInvoice, buffer, key(), previousRevision, { type: 'application/pdf', name: 'factura.pdf' }), status);
+        }
+        assert.equal(await env.models.VehicleInvoiceFile.countDocuments(), beforeFiles);
+        const record = await env.models.VehicleInvoice.findById(idOf(purchaseInvoice)).lean();
+        assert.equal(String(record.fileId), previousId); assert.equal(record.revision, previousRevision);
     });
     await test('invoice cancellation needs an explanation, revokes file access and preserves all financial records', async () => {
         const view = await access(3, saleInvoice); check(view, 200);

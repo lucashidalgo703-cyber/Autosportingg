@@ -11,6 +11,7 @@ let passed = 0;
 try {
     const { seedCapitalHistory } = await import('../fixtures/capitalHistoryFixtures.js');
     const service = await import('../../src/services/capitalHistoryService.js');
+    const { getAdminStock } = await import('../../src/services/inventoryStockService.js');
     const f = await seedCapitalHistory(env.models), owner = { id: String(f.users[1]._id), username: f.users[1].name, role: 'owner', permissions: [] };
     const api = (index, method, route, body, headers = {}) => env.call(method, route, body, f.sessions[index].token, headers);
     const check = (response, status, context = '') => assert.equal(response.status, status, context + ' ' + JSON.stringify(response.json));
@@ -53,11 +54,41 @@ try {
         assert.equal(await businessState(), before);
         assert.doesNotMatch(JSON.stringify(response.json), /passwordHash|Caja ficticia|Socio ficticio|Crédito ficticio|requestFingerprint/);
     });
+    await test('live comparison reconciles global Stock, investors and excluded third parties with own capital in each currency despite filters and pagination', async () => {
+        const before = await businessState();
+        const unfiltered = await getAdminStock({ limit: 1, page: 1 }, owner);
+        const filtered = await getAdminStock({ search: 'QACAP02', limit: 1 }, owner);
+        assert.equal(filtered.total, 1); assert.equal(unfiltered.cars.length, 1);
+        assert.deepEqual(filtered.summary.availableMetrics, unfiltered.summary.availableMetrics);
+        assert.notDeepEqual(filtered.filteredMetrics, unfiltered.summary.availableMetrics);
+        const response = await get(); check(response, 200);
+        const current = response.json.current, comparison = current.stockComparison, metrics = unfiltered.summary.availableMetrics;
+        assert.equal(comparison.scope, 'available-global'); assert.equal(comparison.count, 4);
+        assert.equal(comparison.count, unfiltered.summary.disponibles);
+        for (const field of ['cost', 'ownCost', 'investorCost', 'thirdPartyCost', 'unallocatedCost', 'asking', 'ownAsking', 'investorAsking', 'thirdPartyAsking', 'unallocatedAsking', 'completeness']) assert.deepEqual(comparison[field], metrics[field], field);
+        for (const currency of ['ARS', 'USD']) {
+            const round = value => Math.round(value * 100) / 100;
+            assert.equal(comparison.cost[currency], round(comparison.ownCost[currency] + comparison.investorCost[currency] + comparison.unallocatedCost[currency]));
+            assert.equal(comparison.asking[currency], round(comparison.ownAsking[currency] + comparison.investorAsking[currency] + comparison.thirdPartyAsking[currency] + comparison.unallocatedAsking[currency]));
+            assert.equal(comparison.ownCost[currency], current.components.stockPropioCosto.byCurrency[currency]);
+            assert.equal(comparison.ownAsking[currency], current.totalsByCurrency[currency].stockPropioPublicado);
+            const others = current.components.efectivoPropio.byCurrency[currency] + current.components.carteraPropia.byCurrency[currency]
+                + current.components.otrosCreditos.byCurrency[currency] - current.components.deudasPropia.byCurrency[currency] - current.components.pagosSinCuenta.byCurrency[currency];
+            assert.equal(current.totalsByCurrency[currency].capitalPropioCosto, round(comparison.ownCost[currency] + others));
+            assert.equal(current.totalsByCurrency[currency].capitalPropioPublicado, round(comparison.ownAsking[currency] + others));
+        }
+        assert.equal(comparison.thirdPartyCost.ARS, 700000000); assert.equal(comparison.thirdPartyCost.USD, 800000);
+        assert.equal(comparison.investorCost.USD, 8800); assert.equal(comparison.thirdPartyAsking.ARS, 800000000);
+        assert.equal(comparison.thirdPartyAsking.USD, 900000);
+        assert.doesNotMatch(JSON.stringify(comparison), /vehicleId|QACAP|ficticio|name|items|breakdown|pending/);
+        assert.equal(await businessState(), before);
+    });
     await test('concurrent capture retries create one immutable observation and one monthly reference with no business effects', async () => {
         const before = await businessState(); firstHeaders = key();
         const responses = await Promise.all([0, 1].map(() => api(1, 'POST', '/api/admin/capital-history/capture', {}, firstHeaders)));
         for (const response of responses) assert.ok([200, 201].includes(response.status), JSON.stringify(response.json));
         first = responses[0].json.snapshot; assertTotals(first); assert.equal(first.period, period); assert.ok(idOf(first));
+        assert.equal(first.stockComparison, undefined, 'A current comparison is not backfilled into immutable observations');
         assert.equal(idOf(responses[1].json.snapshot), idOf(first));
         assert.equal(await env.models.CapitalObservation.countDocuments(), 1); assert.equal(await env.models.CapitalMonth.countDocuments(), 1);
         immutableInitial = await env.models.CapitalObservation.findById(idOf(first)).lean();
