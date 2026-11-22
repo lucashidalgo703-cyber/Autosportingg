@@ -42,6 +42,8 @@ const AcademyBudgetSchema = new mongoose.Schema({
     reservedUSD: { type: Number, required: true, default: 0, min: 0 },
     uncertainSpentUSD: { type: Number, required: true, default: 0, min: 0 },
     totalTokensUsed: { type: Number, required: true, default: 0, min: 0 },
+    configuredBySupervisor: { type: Boolean, default: false },
+    lastConfiguredAt: { type: Date, default: null },
     reservations: [ReservationSchema],
     callLogs: [CallLogSchema],
     userQuotas: [UserQuotaSchema],

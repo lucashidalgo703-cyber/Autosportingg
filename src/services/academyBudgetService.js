@@ -4,8 +4,59 @@ import AcademyBudget from '../models/AcademyBudget.js';
 
 const PRIMARY_BUDGET_ID = 'academy-primary';
 
+/**
+ * POLÍTICA DE RESOLUCIÓN DE CONFLICTOS DE PRESUPUESTO (SECCIÓN 7):
+ * 1. Presupuesto por defecto: Estricta regla de seguridad, 0.00 USD (no positivo por defecto).
+ * 2. Prevalencia de Dirección: Si el supervisor fijó un presupuesto en el panel (setAuthorizedBudget),
+ *    queda registrado con `configuredBySupervisor: true` y tiene prevalencia operativa sobre variables
+ *    de entorno por defecto.
+ * 3. Tope Máximo de Infraestructura (Hard Cap): Si se define la variable `ACADEMY_AI_MAX_BUDGET_CAP_USD`,
+ *    el presupuesto operativo jamás podrá exceder ese límite, protegiendo a la empresa contra excesos.
+ * 4. Sobrescritura Forzada (Override de Emergencia): Si se define `ACADEMY_AI_FORCE_BUDGET_USD` o
+ *    `ACADEMY_AI_BUDGET_OVERRIDE='true'`, la infraestructura toma control forzoso del saldo.
+ * 5. Inicialización: Si el supervisor no ha fijado saldo, se toma `ACADEMY_AI_BUDGET_USD` (o 0 si no existe).
+ */
+
 // Almacén en memoria seguro para tests o cuando Mongoose no está conectado
 let inMemoryDoc = null;
+
+function applyBudgetPolicy(doc) {
+    // 1. Tope de infraestructura (Hard Cap)
+    const maxCap = parseFloat(process.env.ACADEMY_AI_MAX_BUDGET_CAP_USD || '');
+    const hasCap = !isNaN(maxCap) && maxCap > 0;
+
+    // 2. Sobrescritura forzada por variable de entorno
+    const forceBudget = parseFloat(process.env.ACADEMY_AI_FORCE_BUDGET_USD || '');
+    const isOverride = process.env.ACADEMY_AI_BUDGET_OVERRIDE === 'true' || (!isNaN(forceBudget) && forceBudget >= 0);
+
+    if (isOverride) {
+        const val = !isNaN(forceBudget) && forceBudget >= 0
+            ? forceBudget
+            : parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
+        doc.authorizedBudgetUSD = hasCap ? Math.min(val, maxCap) : val;
+        return doc;
+    }
+
+    // 3. Prevalencia del supervisor
+    if (doc.configuredBySupervisor) {
+        if (hasCap && doc.authorizedBudgetUSD > maxCap) {
+            doc.authorizedBudgetUSD = maxCap;
+        }
+        return doc;
+    }
+
+    // 4. Inicialización o sincronización por variable de entorno no forzada
+    const envBudget = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
+    if (!isNaN(envBudget) && envBudget > doc.authorizedBudgetUSD) {
+        doc.authorizedBudgetUSD = hasCap ? Math.min(envBudget, maxCap) : envBudget;
+    }
+
+    if (hasCap && doc.authorizedBudgetUSD > maxCap) {
+        doc.authorizedBudgetUSD = maxCap;
+    }
+
+    return doc;
+}
 
 function getInMemoryBudgetDoc() {
     if (!inMemoryDoc) {
@@ -18,6 +69,8 @@ function getInMemoryBudgetDoc() {
             reservedUSD: 0,
             uncertainSpentUSD: 0,
             totalTokensUsed: 0,
+            configuredBySupervisor: false,
+            lastConfiguredAt: null,
             reservations: [],
             callLogs: [],
             userQuotas: [],
@@ -27,13 +80,8 @@ function getInMemoryBudgetDoc() {
                 return this;
             }
         };
-    } else {
-        const envBudget = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
-        if (!isNaN(envBudget) && envBudget > inMemoryDoc.authorizedBudgetUSD) {
-            inMemoryDoc.authorizedBudgetUSD = envBudget;
-        }
     }
-    return inMemoryDoc;
+    return applyBudgetPolicy(inMemoryDoc);
 }
 
 // Costos estimados para reserva atómica previa a la llamada (GPT-4o-mini estándar)
@@ -62,7 +110,6 @@ export async function getBudgetDoc() {
 
     let doc = await AcademyBudget.findOne({ budgetConfigId: PRIMARY_BUDGET_ID });
     if (!doc) {
-        // Inicializar con 0 USD autorizado por defecto
         const envBudget = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
         const initialAuthorized = !isNaN(envBudget) && envBudget > 0 ? envBudget : 0;
 
@@ -73,19 +120,16 @@ export async function getBudgetDoc() {
             reservedUSD: 0,
             uncertainSpentUSD: 0,
             totalTokensUsed: 0,
+            configuredBySupervisor: false,
+            lastConfiguredAt: null,
             reservations: [],
             callLogs: [],
             userQuotas: [],
             lastUpdated: new Date()
         });
-    } else {
-        // Sincronizar si se definió una variable de entorno de presupuesto mayor
-        const envBudget = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
-        if (!isNaN(envBudget) && envBudget > doc.authorizedBudgetUSD) {
-            doc.authorizedBudgetUSD = envBudget;
-            await doc.save();
-        }
     }
+
+    applyBudgetPolicy(doc);
     return doc;
 }
 
@@ -123,6 +167,8 @@ export async function getBudgetStatus(userId = null) {
         uncertainSpentUSD: uncertain,
         availableUSD,
         totalTokensUsed: doc.totalTokensUsed || 0,
+        configuredBySupervisor: Boolean(doc.configuredBySupervisor),
+        lastConfiguredAt: doc.lastConfiguredAt || null,
         isExhausted: availableUSD <= 0.0001,
         userQuota
     };
@@ -285,8 +331,8 @@ export async function settleAICall({
             timestamp: new Date(),
             userId,
             callType,
-            tokensIn: 0,
-            tokensOut: 0,
+            tokensIn,
+            tokensOut,
             costUSD: 0,
             status: 'failed',
             errorMessage: errorMessage || 'Error al invocar API externa.'
@@ -336,8 +382,17 @@ export async function setAuthorizedBudget(amountUSD) {
     if (isNaN(num) || num < 0) {
         throw new Error('El presupuesto debe ser un número mayor o igual a 0.');
     }
+
+    // Verificar si existe un Hard Cap de infraestructura
+    const maxCap = parseFloat(process.env.ACADEMY_AI_MAX_BUDGET_CAP_USD || '');
+    if (!isNaN(maxCap) && maxCap > 0 && num > maxCap) {
+        throw new Error(`El presupuesto no puede exceder el límite máximo de infraestructura ($${maxCap} USD).`);
+    }
+
     const doc = await getBudgetDoc();
     doc.authorizedBudgetUSD = Number(num.toFixed(2));
+    doc.configuredBySupervisor = true;
+    doc.lastConfiguredAt = new Date();
     doc.lastUpdated = new Date();
     await doc.save();
     return doc;
@@ -353,6 +408,8 @@ export async function resetBudgetForTesting(authorizedUSD = 0) {
         inMemoryDoc.reservedUSD = 0;
         inMemoryDoc.uncertainSpentUSD = 0;
         inMemoryDoc.totalTokensUsed = 0;
+        inMemoryDoc.configuredBySupervisor = false;
+        inMemoryDoc.lastConfiguredAt = null;
         inMemoryDoc.reservations = [];
         inMemoryDoc.callLogs = [];
         inMemoryDoc.userQuotas = [];
@@ -365,6 +422,8 @@ export async function resetBudgetForTesting(authorizedUSD = 0) {
         doc.reservedUSD = 0;
         doc.uncertainSpentUSD = 0;
         doc.totalTokensUsed = 0;
+        doc.configuredBySupervisor = false;
+        doc.lastConfiguredAt = null;
         doc.reservations = [];
         doc.callLogs = [];
         doc.userQuotas = [];

@@ -188,17 +188,29 @@ export async function syncLocalProgress(user, localData = {}) {
                     });
                 }
             } else {
-                // Conflicto concurrente entre dispositivos: conservar la versión de mayor contenido
-                const localText = `${ref.situation || ref.quePaso || ''} ${ref.difficultyEncountered || ref.informacion || ''} ${ref.alternativeApproach || ref.otraManera || ''}`;
-                const existingText = `${existing.situation || ''} ${existing.difficultyEncountered || ''} ${existing.alternativeApproach || ''}`;
+                // Conflicto concurrente entre dispositivos:
+                // REGLA ESTRICTA: Conservar ambas versiones para revisión; no seleccionar automáticamente la más larga
+                const incomingText = `${ref.situation || ref.quePaso || ''} ${ref.difficultyEncountered || ref.informacion || ''} ${ref.alternativeApproach || ref.otraManera || ''}`.trim();
+                const existingText = `${existing.situation || ''} ${existing.difficultyEncountered || ''} ${existing.alternativeApproach || ''}`.trim();
 
-                if (localText.length > existingText.length) {
-                    existing.situation = ref.situation || ref.quePaso || existing.situation;
-                    existing.actionTaken = ref.actionTaken || existing.actionTaken;
-                    existing.difficultyEncountered = ref.difficultyEncountered || ref.informacion || existing.difficultyEncountered;
-                    existing.alternativeApproach = ref.alternativeApproach || ref.otraManera || existing.alternativeApproach;
-                    existing.reinforcementModuleId = ref.reinforcementModuleId || ref.linkedModuleId || existing.reinforcementModuleId;
-                    existing.updatedAt = new Date();
+                if (incomingText !== existingText && incomingText.length > 0 && existingText.length > 0) {
+                    const alreadyPreserved = progress.errorReflections.some(
+                        r => r.situation?.includes('[Revisión concurrente') && r.situation?.includes((ref.situation || ref.quePaso || '').slice(0, 30))
+                    );
+                    if (!alreadyPreserved) {
+                        progress.errorReflections.push({
+                            _id: crypto.randomUUID(),
+                            situation: `${ref.situation || ref.quePaso || ref.titulo || ''} [Revisión concurrente multidispositivo]`,
+                            actionTaken: ref.actionTaken || ref.quePaso || '',
+                            difficultyEncountered: ref.difficultyEncountered || ref.informacion || '',
+                            alternativeApproach: ref.alternativeApproach || ref.otraManera || '',
+                            reinforcementModuleId: ref.reinforcementModuleId || ref.linkedModuleId || '',
+                            sharedWithSupervisor: Boolean(ref.sharedWithSupervisor || ref.compartidoConSupervisor),
+                            sharedAt: (ref.sharedWithSupervisor || ref.compartidoConSupervisor) ? new Date() : null,
+                            createdAt: ref.createdAt ? new Date(ref.createdAt) : new Date(),
+                            updatedAt: new Date()
+                        });
+                    }
                 }
 
                 if ((ref.sharedWithSupervisor || ref.compartidoConSupervisor) && !existing.sharedWithSupervisor) {

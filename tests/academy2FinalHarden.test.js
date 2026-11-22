@@ -232,7 +232,7 @@ test('Sincronización Multidispositivo: Las asignaciones del supervisor tienen a
     assert.equal(synced.recommendedActivities.length, 1);
 });
 
-test('Sincronización Multidispositivo: Edición concurrente de reflexión preserva el contenido más extenso', async () => {
+test('Sincronización Multidispositivo: Edición concurrente de reflexión conserva ambas versiones para revisión', async () => {
     const employee = { id: 'usr-reflection-sync', role: 'ventas', name: 'Rodrigo' };
 
     // Guardar reflexión inicial
@@ -243,22 +243,74 @@ test('Sincronización Multidispositivo: Edición concurrente de reflexión prese
         alternativeApproach: 'Mejorar'
     });
 
-    // Dispositivo B envía versión más desarrollada con el mismo situation
+    // Dispositivo B envía versión concurrente con cambios de contenido
     const synced = await syncLocalProgress(employee, {
         errorReflections: [
             {
                 id: String(initialRef._id),
-                situation: 'Error en negociación: el cliente Don Guillermo pidió 3M y no desglosé el informe de dominio',
+                situation: 'Error en negociación: Don Guillermo pidió 3M y no desglosé peritaje',
                 actionTaken: 'Rechacé de plano sin fundamentar el peritaje oficial de la agencia',
-                difficultyEncountered: 'El comprador se sintió poco escuchado y se retiró a comparar en otra agencia',
-                alternativeApproach: 'Explicar los 80 puntos de revisión y la garantía de transferencia al día'
+                difficultyEncountered: 'El comprador se sintió poco escuchado y se retiró',
+                alternativeApproach: 'Explicar los 80 puntos de revisión y garantía'
             }
         ]
     });
 
-    const updatedRef = synced.errorReflections.id(initialRef._id);
-    assert.ok(updatedRef.situation.includes('Don Guillermo'), 'Debe preservar el contenido de mayor desarrollo');
-    assert.ok(updatedRef.alternativeApproach.includes('80 puntos'));
+    // REGLA ESTRICTA: Conservar ambas versiones para revisión; no seleccionar automáticamente la más larga
+    assert.equal(synced.errorReflections.length, 2, 'Deben conservarse ambas versiones sin descartar ninguna');
+    const original = synced.errorReflections.find(r => String(r._id) === String(initialRef._id));
+    const concurrent = synced.errorReflections.find(r => r.situation && r.situation.includes('[Revisión concurrente multidispositivo]'));
+    assert.ok(original, 'Debe mantenerse la versión original');
+    assert.equal(original.situation, 'Error breve inicial');
+    assert.ok(concurrent, 'Debe preservarse la versión concurrente rotulada para revisión');
+    assert.ok(concurrent.situation.includes('Don Guillermo'));
+});
+
+test('Política de Resolución de Conflictos de Presupuesto: Supervisor, Hard Cap y Override de Emergencia', async () => {
+    delete process.env.ACADEMY_AI_BUDGET_USD;
+    delete process.env.ACADEMY_AI_MAX_BUDGET_CAP_USD;
+    delete process.env.ACADEMY_AI_FORCE_BUDGET_USD;
+    delete process.env.ACADEMY_AI_BUDGET_OVERRIDE;
+    await resetBudgetForTesting(0);
+
+    // 1. Presupuesto por defecto es 0 USD
+    let status = await getBudgetStatus();
+    assert.equal(status.authorizedBudgetUSD, 0);
+
+    // 2. Supervisor configura presupuesto en el panel
+    await setAuthorizedBudget(15.00);
+    status = await getBudgetStatus();
+    assert.equal(status.authorizedBudgetUSD, 15.00);
+    assert.equal(status.configuredBySupervisor, true);
+
+    // Si viene ACADEMY_AI_BUDGET_USD en el entorno pero supervisor ya fijó saldo,
+    // prevalece la configuración del supervisor
+    process.env.ACADEMY_AI_BUDGET_USD = '5.00';
+    status = await getBudgetStatus();
+    assert.equal(status.authorizedBudgetUSD, 15.00, 'Configuración del supervisor prevalece sobre env var por defecto');
+
+    // 3. Tope Máximo de Infraestructura (Hard Cap): Si la infraestructura define cap de $10 USD
+    process.env.ACADEMY_AI_MAX_BUDGET_CAP_USD = '10.00';
+    status = await getBudgetStatus();
+    assert.equal(status.authorizedBudgetUSD, 10.00, 'El presupuesto no puede superar el Hard Cap de infraestructura');
+
+    // Intentar configurar un presupuesto superior al Hard Cap arroja error
+    await assert.rejects(
+        () => setAuthorizedBudget(20.00),
+        /no puede exceder el límite máximo de infraestructura/
+    );
+
+    // 4. Override forzado de emergencia
+    process.env.ACADEMY_AI_FORCE_BUDGET_USD = '2.50';
+    status = await getBudgetStatus();
+    assert.equal(status.authorizedBudgetUSD, 2.50, 'El override forzado toma control de emergencia');
+
+    // Limpieza
+    delete process.env.ACADEMY_AI_BUDGET_USD;
+    delete process.env.ACADEMY_AI_MAX_BUDGET_CAP_USD;
+    delete process.env.ACADEMY_AI_FORCE_BUDGET_USD;
+    delete process.env.ACADEMY_AI_BUDGET_OVERRIDE;
+    await resetBudgetForTesting(0);
 });
 
 // ============================================================================

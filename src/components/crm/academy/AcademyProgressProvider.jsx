@@ -101,11 +101,15 @@ function LearnerProgress({ learnerId, children }) {
                             if (!existing) {
                                 refMap.set(br.id, br);
                             } else {
-                                // Preservar la versión de mayor contenido en ediciones concurrentes
-                                const localLen = `${existing.quePaso || ''} ${existing.informacion || ''} ${existing.otraManera || ''}`.length;
-                                const backendLen = `${br.quePaso || ''} ${br.informacion || ''} ${br.otraManera || ''}`.length;
-                                if (backendLen > localLen) {
-                                    refMap.set(br.id, br);
+                                // REGLA ESTRICTA: Conservar ambas versiones para revisión; no seleccionar automáticamente la más larga
+                                const localText = `${existing.quePaso || ''} ${existing.informacion || ''} ${existing.otraManera || ''}`.trim();
+                                const backendText = `${br.quePaso || ''} ${br.informacion || ''} ${br.otraManera || ''}`.trim();
+                                if (localText !== backendText && localText.length > 0 && backendText.length > 0) {
+                                    refMap.set(br.id + '-sync', {
+                                        ...br,
+                                        id: br.id + '-sync',
+                                        titulo: `${br.titulo || 'Reflexión'} [Revisión sincronizada]`
+                                    });
                                 }
                             }
                         }
