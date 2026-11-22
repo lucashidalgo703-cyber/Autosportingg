@@ -1,0 +1,11 @@
+{
+ "id":"AS-SINT-01-PAGO-SOCIO",
+ "parent":{"id":"AS-SINT-01","version":1},
+ "synthetic":true,
+ "asOf":"2026-11-03T23:59:59-03:00",
+ "entry":{"id":"E9","date":"2026-11-03","recorded":"2026-11-03","origin":"PAGO-SOCIO-S","obligationId":"SOCIO-S","debit":{"partnerS":30},"credit":{"restrictedBank":30}},
+ "cashEvidence":[
+  {"account":"bank","source":"SINT-EXTRACTO-PAGO/A","statement":475,"reconciling":0},
+  {"account":"restrictedBank","source":"SINT-EXTRACTO-PAGO/B","statement":0,"reconciling":0,"restrictionId":"R1","obligationId":"SOCIO-S"}
+ ]
+}

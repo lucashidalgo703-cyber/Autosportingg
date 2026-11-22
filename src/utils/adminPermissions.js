@@ -35,6 +35,7 @@ export const PERMISSIONS = {
     FINANZAS_WRITE: 'finanzas.write',
     FACTURACION_READ: 'facturacion.read',
     FACTURACION_WRITE: 'facturacion.write',
+    FINANCIAL_PILOT_READ: 'financialPilot.read',
     CAPITAL_HISTORY_READ: 'capitalHistory.read',
     CAPITAL_HISTORY_WRITE: 'capitalHistory.write',
     CAJA_READ: 'caja.read',
@@ -257,6 +258,7 @@ export const canAccessCrmPath = (user, rawPath) => {
     if (path.split('/').some(segment => segment === '.' || segment === '..') || /[\\\u0000-\u001f]/.test(path)) return false;
     if (/^\/admin\/facturacion(?:\/|$)/i.test(path)) return canReadVehicleInvoices(user);
     if (/^\/admin\/capital-mensual(?:\/|$)/i.test(path)) return canReadCapitalHistory(user);
+    if (/^\/admin\/autosporting-ai(?:\/|$)/i.test(path)) return canReadFinancialPilot(user);
     if (!isSalesRole(user)) return true;
     return !/^\/admin(?:$|\/(?:ventas|legacy|analitica)(?:\/|$)|\/stock\/)/i.test(path);
 };
@@ -271,6 +273,8 @@ export const canConfigureStockNegotiation = user => canReadStockNegotiation(user
 export const canCompleteStockPlate = user => canReadStockNegotiation(user) && (user?.role === ROLES.OWNER || isSalesRole(user));
 export const canReadVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_READ);
 export const canWriteVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_WRITE);
+export const canReadFinancialPilot = user => user?.role === ROLES.OWNER ||
+    (user?.role === ROLES.ADMIN && Array.isArray(user.permissions) && user.permissions.includes(PERMISSIONS.FINANCIAL_PILOT_READ));
 export const canReadCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_READ);
 export const canWriteCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_WRITE);
 

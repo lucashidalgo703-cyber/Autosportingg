@@ -1,0 +1,19 @@
+{
+ "closing":{"sales":150,"cogs":110,"grossMargin":40,"direct":5,"contribution":35,"overhead":12,"result":23,"bank":475,"restrictedBank":30,"registered":505,"reconciled":505,"usable":475,"inventory":100,"commercialUnits":0,"receivables":50,"supplier":40,"acquisitionPaid":60,"acquisitionTotal":100,"overheadPayable":12,"loan":50,"partnerPayable":30,"assets":655,"liabilities":132,"equity":523,"cashChange":5,"equityChange":23,"cashOperating":-75,"cashFinancing":80,"unexplainedDifference":0},
+ "forecast":{"base":{"ends":[423,473,423,423,423],"minimums":[423,423,423,423,423],"minimumDays":[7,7,7,7,7],"weeklyEnds":[423,473,423,423,423,423,423,423,423,423,423,423,423],"capacity":73},"adverse":{"ends":[423,423,373,373,373],"minimums":[423,423,373,373,373],"minimumDays":[7,7,20,20,20],"weeklyEnds":[423,423,373,373,373,373,373,373,373,373,373,373,373],"capacity":23},"robustCapacity":23,"restrictedAfterDay3":0,"freeAfterDay3":475},
+ "settlement":{"registered":475,"restricted":0,"usable":475,"liabilities":102,"assets":625,"equity":523,"result":23,"additionalExpense":0,"partnerPayable":0,"cashChange":-30,"operatingCashChange":0,"financingCashChange":-30},
+ "equityBridge":{"opening":500,"result":23,"contributions":0,"withdrawals":0,"otherAdjustments":0,"closing":523,"unexplained":0},
+ "corrections":{"v1Result":23,"v2Result":20,"v2Equity":520,"v2Liabilities":135,"v2Cash":505,"v2RobustCapacity":20,"novemberExpense":4},
+ "cases":{
+   "cashSale":{"margin":40,"contribution":35,"cash":35,"receivable":0},
+   "creditSale":{"margin":40,"contribution":35,"cash":-15,"receivable":50},
+   "tradeChain":{"firstGross":20,"secondGross":15,"secondContribution":10,"chainContribution":30,"afterLateExpense":27},
+   "financing":{"principalOutstanding":65,"contractualInterest":20,"recognizedInterest":5,"cash":35,"contractualTotalOutstanding":85,"recognizedReceivable":70,"stressedPrincipalRecovery":50},
+   "partner":{"capitalContributed":40,"cost":42,"profit":9,"entitlement":51,"partialPayment":20,"balance":31,"lateExpenseShare":2,"revisedBalance":29,"lossShare":6,"entitlementInLoss":36,"pendingContribution":10,"oldShare":30,"newShare":40,"oldShareOfGain":9,"newShareOfGain":12},
+   "stock":{"economicValue":200,"commercialCount":0},
+   "portfolio":{"nominal":155,"agencyKnown":15,"partnerKnown":10,"unattributed":130,"certainty":"partial"},
+   "fx":{"ARS":100,"USD":10,"converted":null,"purchaseAgencyAmount":null,"mixedPurchaseTotal":null},
+   "dedup":{"obligation":40,"sources":3},
+   "cashEvidence":{"registered":50,"reconciled":null,"usable":null,"certainty":"unknown"}
+ }
+}

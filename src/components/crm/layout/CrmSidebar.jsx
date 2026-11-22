@@ -48,6 +48,7 @@ const menuGroups = [
         items: [
             { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
             { name: 'Facturación / ARCA', path: '/admin/facturacion', icon: '🧾', prefetch: false },
+            ...((process.env.NEXT_PUBLIC_AUTOSPORTING_FINANCIAL_PILOT === '1' || process.env.NEXT_PUBLIC_AUTOSPORTING_AI_OFFICIAL === '1') ? [{ name: 'AutoSporting AI', path: '/admin/autosporting-ai', icon: '◈', prefetch: false }] : []),
             { name: 'Capital mensual', path: '/admin/capital-mensual', icon: '📉', prefetch: false },
             { name: 'Dictar gasto', path: '/admin/gastos/rapido', icon: '🎙️', prefetch: false },
             { name: 'Tesorería', path: '/admin/tesoreria', icon: '🏦', prefetch: false },
@@ -165,6 +166,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Metas') return hasPermission(user, PERMISSIONS.METAS_READ);
         if (itemName === 'Ayuda') return hasPermission(user, PERMISSIONS.HELP_READ);
         if (itemName === 'Oportunidades') return hasPermission(user, PERMISSIONS.OPORTUNIDADES_READ) || hasPermission(user, PERMISSIONS.STOCK_READ);
+        if (itemName === 'AutoSporting AI') return user?.role === 'owner';
         return true;
     };
 

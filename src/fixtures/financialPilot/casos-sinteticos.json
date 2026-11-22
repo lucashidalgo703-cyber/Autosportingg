@@ -1,0 +1,12 @@
+{
+ "synthetic":true,
+ "sale":{"price":150,"cost":100,"preparation":10,"commission":5,"cashAmounts":[150,100]},
+ "trade":{"aCost":100,"aCash":40,"bAssignedCost":80,"bPrice":95,"bDirect":5,"lateDirect":3},
+ "financing":{"principal":100,"contractualInterest":20,"earnedAtCutoff":5,"principalPaid":35,"interestPaid":0,"stressedPrincipalLoss":15},
+ "partner":{"requiredCapital":40,"contributed":40,"totalDirectCost":10,"directPct":20,"residualGain":30,"gainPct":30,"paidOut":20,"lateDirectCost":10,"loss":20,"lossPct":30,"separateCaseContributed":30,"nextGainPct":40,"newAgreementFrom":"2026-11-01","oldOperationDate":"2026-10-31","newOperationDate":"2026-11-01"},
+ "stock":[{"status":"reservado","rights":true,"cost":100},{"status":"pausado","rights":true,"cost":100},{"status":"consignado","rights":false,"cost":90}],
+ "portfolio":[{"remaining":60,"vehicle":null,"share":null},{"remaining":70,"vehicle":"V2","share":null},{"remaining":25,"vehicle":"V3","share":60}],
+ "fx":{"ARS":100,"USD":10,"exchangeRate":null,"purchase":{"mode":"compartido","price":100,"currency":"ARS","expense":10,"expenseCurrency":"USD","agencyPct":null}},
+ "dedup":[{"id":"OB-1","origin":"contract","amount":40},{"id":"OB-1","origin":"installment","amount":40},{"id":"OB-1","origin":"treasury","amount":40}],
+ "cashEvidence":{"account":"NO-EXTRACT","balance":50,"bankStatement":null}
+}
