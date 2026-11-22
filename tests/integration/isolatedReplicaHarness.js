@@ -5,17 +5,17 @@ import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
-export async function bootIsolatedReplica({ listen = true } = {}) {
+export async function bootIsolatedReplica({ listen = true, persistent = null } = {}) {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const envFiles = ['.env', '.env.local', '.env.development', '.env.development.local', '.env.production', '.env.production.local'];
     if (envFiles.some(name => fs.existsSync(path.join(root, name)))) throw new Error('Las pruebas aisladas requieren un checkout sin archivos .env.');
     const binary = path.join(root, 'node_modules/.cache/mongodb-binaries/mongod-x64-win32-8.2.6.exe');
     const mongod = await MongoMemoryReplSet.create({
         binary: { downloadDir: path.dirname(binary), ...(process.platform === 'win32' && fs.existsSync(binary) ? { systemBinary: binary } : {}) },
-        instanceOpts: [{ launchTimeout: 60000 }], replSet: { count: 1, storageEngine: 'wiredTiger' }
+        instanceOpts: [{ launchTimeout: 60000, ...(persistent ?? {}) }], replSet: { count: 1, storageEngine: 'wiredTiger' }
     });
     Object.assign(process.env, {
-        MONGODB_URI: mongod.getUri('autosporting_mobile_crm_test'), NODE_ENV: 'production',
+        MONGODB_URI: mongod.getUri(persistent ? 'autosporting_financial_pilot_local' : 'autosporting_mobile_crm_test'), NODE_ENV: 'production',
         JWT_SECRET: crypto.randomBytes(48).toString('hex'), EMAIL_LOGIN_HMAC_SECRET: crypto.randomBytes(48).toString('hex'),
         TWO_FACTOR_ENCRYPTION_KEY: crypto.randomBytes(48).toString('hex'), SECURITY_ALERT_EMAIL: 'administrador@example.test',
         SMTP_HOST: '127.0.0.1', SMTP_PORT: '1', SMTP_USER: 'prueba@example.test', SMTP_PASS: 'local-only', SMTP_FROM: 'prueba@example.test',
@@ -60,7 +60,7 @@ export async function bootIsolatedReplica({ listen = true } = {}) {
     const stop = async () => {
         if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
         await mongoose.disconnect();
-        await mongod.stop();
+        await mongod.stop({doCleanup:!persistent});
     };
     return { app, mongoose, models: mongoose.models, base, call, mailbox, stop };
 }
