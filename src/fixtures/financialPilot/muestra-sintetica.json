@@ -1,0 +1,30 @@
+{
+  "id":"AS-SINT-01","synthetic":true,"currency":"ARS","scale":0,
+  "periodStart":"2026-10-01","cutoff":"2026-10-31T23:59:59-03:00","extractedAt":"2026-11-02T10:00:00-03:00","version":1,
+  "manifest":{"opening":"SINT-APERTURA-01","journal":"SINT-DIARIO-01","bank":"SINT-EXTRACTO-01","stock":"SINT-INVENTARIO-01","forecast":"SINT-VENCIMIENTOS-01","policy":"SINT-POL-01","repoCommit":"724f4b8c70fb992713b185c19858efd5fd84b3fc"},
+  "opening":{"bank":500,"equity":500},
+  "entries":[
+    {"id":"E1","date":"2026-10-02","recorded":"2026-10-02","origin":"COMPRA-A","debit":{"inventoryA":100},"credit":{"bank":100}},
+    {"id":"E2","date":"2026-10-03","recorded":"2026-10-03","origin":"PREP-A","debit":{"inventoryA":10},"credit":{"bank":10}},
+    {"id":"E3","date":"2026-10-10","recorded":"2026-10-10","origin":"VENTA-A","debit":{"bank":100,"receivableA":50,"cogs":110},"credit":{"sales":150,"inventoryA":110}},
+    {"id":"E4","date":"2026-10-10","recorded":"2026-10-10","origin":"COMISION-A","debit":{"direct":5},"credit":{"bank":5}},
+    {"id":"E5","date":"2026-10-12","recorded":"2026-10-12","origin":"COMPRA-B","debit":{"inventoryB":100},"credit":{"bank":60,"supplierB":40}},
+    {"id":"E6","date":"2026-10-15","recorded":"2026-10-15","origin":"FONDOS-SOCIO-S","debit":{"restrictedBank":30},"credit":{"partnerS":30}},
+    {"id":"E7","date":"2026-10-20","recorded":"2026-10-20","origin":"GASTO-OCT","debit":{"overhead":12},"credit":{"payableOverhead":12}},
+    {"id":"E8","date":"2026-10-23","recorded":"2026-10-23","origin":"PRESTAMO-P","debit":{"bank":50},"credit":{"loanP":50}}
+  ],
+  "cashEvidence":[{"account":"bank","source":"SINT-EXTRACTO-01/A","statement":475,"reconciling":0},{"account":"restrictedBank","source":"SINT-EXTRACTO-01/B","statement":30,"reconciling":0,"restrictionId":"R1","obligationId":"SOCIO-S"}],
+  "stock":[{"id":"A","status":"entregada","rightsRetained":false,"remainingCost":0},{"id":"B","status":"reservado","rightsRetained":true,"remainingCost":100,"paid":60,"supplierOutstanding":40,"agencyPct":100}],
+  "forecast":[
+    {"id":"SOCIO-S","amount":-30,"day":3,"restrictedAccount":"restrictedBank","restrictionId":"R1","sources":["E6","ACUERDO-S"]},
+    {"id":"PROV-B","amount":-40,"day":5,"sources":["COMPRA-B","CUOTA-B","TESOR-B"]},
+    {"id":"GASTO-OCT","amount":-12,"day":7,"sources":["E7"]},
+    {"id":"COBRO-A","amount":50,"day":10,"adverseDay":95,"sources":["VENTA-A","CUOTA-A"]},
+    {"id":"PRESTAMO-P","amount":-50,"day":20,"sources":["E8","CONTRATO-P"]}
+  ],
+  "floor":350,"horizon":90,"horizons":[7,15,30,60,90],"weeklyBuckets":13,
+  "corrections":[
+    {"id":"T1","economicDate":"2026-10-29","recordedAt":"2026-11-03","origin":"FACT-T1","amount":3,"debit":"direct","credit":"payableLate","dueDay":25},
+    {"id":"T2","economicDate":"2026-11-02","recordedAt":"2026-11-03","origin":"FACT-T2","amount":4,"debit":"overhead","credit":"payableNov"}
+  ]
+}
