@@ -9,17 +9,22 @@ const userClaims = user => ({
     id: String(user._id), userId: String(user._id), email: user.email,
     username: user.name, role: user.role, permissions: user.permissions || []
 });
+// Session duration: 30 days default to prevent unexpected logouts
+const SESSION_DURATION_DAYS = 30;
+const SESSION_TTL_MS = SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
 // Called only after the login challenge has been consumed on the server.
-export async function createLoginSession(user) {
+export async function createLoginSession(user, { durationDays = SESSION_DURATION_DAYS } = {}) {
     const sid = crypto.randomBytes(32).toString('base64url');
+    const ttlMs = durationDays * 24 * 60 * 60 * 1000;
     await LoginSession.create({
         _id: sessionHash(sid), userId: user._id,
         credentialFingerprint: credentialFingerprint(user),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + ttlMs)
     });
     const token = jwt.sign({
         ...userClaims(user), type: 'session', emailVerified: true, sid
-    }, process.env.JWT_SECRET.trim(), { expiresIn: '24h', algorithm: 'HS256' });
+    }, process.env.JWT_SECRET.trim(), { expiresIn: `${durationDays}d`, algorithm: 'HS256' });
     return { token, name: user.name, role: user.role };
 }
 // Shared by Express and Next: old tokens and all pending challenges fail closed.
@@ -38,6 +43,14 @@ export async function validateLoginSession(token) {
     if (!session) return null;
     const user = await AdminUser.findById(session.userId).lean();
     if (!user?.active || session.credentialFingerprint !== credentialFingerprint(user)) return null;
+
+    // Sliding window: si la sesión tiene menos de 15 días restantes, extenderla automáticamente por otros 30 días
+    const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+    if (session.expiresAt && (session.expiresAt.getTime() - Date.now() < fifteenDaysMs)) {
+        const extendedTtl = new Date(Date.now() + SESSION_TTL_MS);
+        LoginSession.updateOne({ _id: session._id }, { $set: { expiresAt: extendedTtl } }).catch(() => {});
+    }
+
     return { ...userClaims(user), sid: decoded.sid, type: 'session', emailVerified: true };
 }
 export async function revokeLoginSession(sid) {

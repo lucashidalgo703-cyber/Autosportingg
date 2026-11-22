@@ -52,31 +52,55 @@ export const AuthProvider = ({ children }) => {
                 }
                 return;
             }
+
+            // Restauración inmediata desde claims válidos locales para evitar parpadeos
+            const claims = decodeToken(storedToken);
+            if (claims && isTokenValid(storedToken)) {
+                setToken(storedToken);
+                setIsAuthenticated(true);
+                setUser({ ...claims, id: claims.id, userId: claims.id });
+            }
+
             try {
                 const response = await fetch(authBaseUrl() + '/api/admin/auth/me', {
                     headers: { Authorization: 'Bearer ' + storedToken },
                     cache: 'no-store',
                     signal: controller.signal
                 });
-                if (!response.ok) throw new Error('Session rejected');
-                const session = await response.json();
-                const claims = decodeToken(storedToken);
-                const currentUser = session?.user;
-                if (session?.ok !== true || !currentUser || currentUser.id !== claims?.id
-                    || typeof currentUser.role !== 'string' || !Array.isArray(currentUser.permissions)) {
-                    throw new Error('Invalid session response');
+
+                // Solo el código HTTP 401 indica revocación real o sesión expirada en servidor
+                if (response.status === 401) {
+                    if (!cancelled) clearSession();
+                    return;
                 }
-                if (!cancelled && localStorage.getItem('token') === storedToken && isTokenValid(storedToken)) {
-                    setToken(storedToken);
-                    setIsAuthenticated(true);
-                    // The JWT retains its original expiry, but role and access
-                    // may have changed in Configuration during this session.
-                    setUser({ ...claims, id: claims.id, userId: claims.id,
-                        role: currentUser.role, permissions: currentUser.permissions,
-                        username: currentUser.username, email: currentUser.email });
+
+                // Si hubo error de red o servidor temporal (5xx), preservamos la sesión local válida
+                if (!response.ok) {
+                    return;
+                }
+
+                const session = await response.json();
+                const currentUser = session?.user;
+                if (session?.ok === true && currentUser && currentUser.id === claims?.id
+                    && typeof currentUser.role === 'string' && Array.isArray(currentUser.permissions)) {
+                    if (!cancelled && localStorage.getItem('token') === storedToken && isTokenValid(storedToken)) {
+                        setUser({
+                            ...claims,
+                            id: claims.id,
+                            userId: claims.id,
+                            role: currentUser.role,
+                            permissions: currentUser.permissions,
+                            username: currentUser.username,
+                            email: currentUser.email
+                        });
+                    }
                 }
             } catch {
-                if (!cancelled) clearSession();
+                // Si la red falló momentáneamente o la máquina se despertó de suspensión,
+                // NO destruimos la sesión si el token aún no venció cronológicamente
+                if (!cancelled && (!claims || !isTokenValid(storedToken))) {
+                    clearSession();
+                }
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -91,12 +115,23 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         if (!token) return;
         const decoded = decodeToken(token);
-        const remaining = decoded?.exp * 1000 - Date.now();
+        if (!decoded?.exp) return;
+        const remaining = decoded.exp * 1000 - Date.now();
         if (!Number.isFinite(remaining) || remaining <= 0) {
             clearSession();
             return;
         }
-        const timer = setTimeout(clearSession, remaining);
+        // Cap timer a máximo 12 horas para prevenir desbordamiento de enteros de 32 bits en setTimeout
+        // (si el delay supera 2147483647 ms, el estándar JS lo convierte a 0 y ejecuta de inmediato)
+        const safeDelay = Math.min(remaining, 12 * 60 * 60 * 1000);
+        const timer = setTimeout(() => {
+            if (Date.now() >= decoded.exp * 1000) {
+                clearSession();
+            } else {
+                // El token sigue vigente; re-evaluar timer de forma segura
+                setToken(t => (t ? `${t}` : null));
+            }
+        }, safeDelay);
         return () => clearTimeout(timer);
     }, [token, clearSession]);
 
