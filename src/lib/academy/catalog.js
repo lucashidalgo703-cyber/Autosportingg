@@ -66,6 +66,41 @@ export const ROLE_TRACKS = {
     }
 };
 
+// Mapeo canónico de alias para garantizar resolución de tracks sin colisión con Object.values
+const TRACK_ALIASES = {
+    'track-vendedor': 'ventas',
+    'track-gestoria': 'gestoria',
+    'track-administracion': 'administracion',
+    'track-comun': 'comun',
+    'vendedor': 'ventas',
+    'gestor': 'gestoria',
+    'gestoria_contabilidad': 'gestoria',
+    'administrativo': 'administracion',
+    'admin': 'administracion',
+    'owner': 'ventas'
+};
+
+for (const [alias, targetTrack] of Object.entries(TRACK_ALIASES)) {
+    Object.defineProperty(ROLE_TRACKS, alias, {
+        get() { return ROLE_TRACKS[targetTrack]; },
+        enumerable: false,
+        configurable: true
+    });
+}
+
+export const normalizeTrackId = trackId => {
+    if (!trackId) return 'ventas';
+    const key = String(trackId).toLowerCase().trim();
+    return TRACK_ALIASES[key] || (ROLE_TRACKS[key] ? key : 'ventas');
+};
+
+export const getRoleTrack = (trackId, role) => {
+    if (trackId && ROLE_TRACKS[trackId]) return ROLE_TRACKS[trackId];
+    const normalized = normalizeTrackId(trackId);
+    if (normalized && ROLE_TRACKS[normalized]) return ROLE_TRACKS[normalized];
+    return getTrackByRole(role) || ROLE_TRACKS.comun;
+};
+
 // 8 Espacios de navegación de la capacitación práctica (incluye Simulador de Negociación con IA)
 export const roleTrainingSections = [
     ['mi-capacitacion', 'Mi capacitación', 'Tu recorrido asignado, objetivos, módulos y próximo paso.'],

@@ -6,7 +6,8 @@ import CrmButton from '../ui/CrmButton';
 import { useAuth } from '../../../context/AuthContext';
 import { useAcademyProgress } from './AcademyProgressProvider';
 import { summarizeProgress, summarizeRoleProgress } from '../../../lib/academy/progress';
-import { ROLE_TRACKS, getTrackByRole } from '../../../lib/academy/catalog';
+import { ROLE_TRACKS, getTrackByRole, getRoleTrack } from '../../../lib/academy/catalog';
+import { MOTIVATIONAL_QUOTES } from '../../../lib/academy/aprenderDelError';
 import { ROLE_MODULES } from '../../../lib/academy/roleModules';
 import { ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
 
@@ -16,7 +17,7 @@ export default function AcademyProgress() {
     const [confirmReset, setConfirmReset] = useState(false);
     const [activeView, setActiveView] = useState('rol'); // 'rol' | 'financiero'
 
-    const userTrack = progress?.assignedTrack ? ROLE_TRACKS[progress.assignedTrack] : getTrackByRole(user?.role);
+    const userTrack = getRoleTrack(progress?.assignedTrack, user?.role);
     const roleSummary = summarizeRoleProgress(progress, userTrack);
     const financialSummary = summarizeProgress(progress);
 
@@ -96,7 +97,7 @@ export default function AcademyProgress() {
                                 {roleSummary.modulesPercent}%
                             </div>
                             <p className="text-xs text-zinc-400">
-                                {roleSummary.modulesCompleted} de {roleSummary.modulesTotal} módulos leídos en {userTrack.title}
+                                {roleSummary.modulesCompleted} de {roleSummary.modulesTotal} módulos leídos en {userTrack?.title || 'Recorrido Formativo'}
                             </p>
                         </div>
 
@@ -223,7 +224,7 @@ export default function AcademyProgress() {
                 /* VISTA FINANCIERA LEGACY */
                 <div className="space-y-5">
                     <div className="grid gap-4 sm:grid-cols-3">
-                        {[[`${financialSummary.percent}%`, 'Avance de lecciones'], [`${financialSummary.completed} / ${financialSummary.total}`, 'Lecciones completadas'], [progress.attempts.length, 'Intentos de evaluación guardados']].map(([value, title]) => (
+                        {[[`${financialSummary.percent}%`, 'Avance de lecciones'], [`${financialSummary.completed} / ${financialSummary.total}`, 'Lecciones completadas'], [progress?.attempts?.length || 0, 'Intentos de evaluación guardados']].map(([value, title]) => (
                             <CrmCard key={title}>
                                 <h2 className="text-sm text-crm-fg-muted">{title}</h2>
                                 <p className="mt-2 text-2xl font-bold">{value}</p>
@@ -245,6 +246,72 @@ export default function AcademyProgress() {
                     </div>
                 </div>
             )}
+
+            {/* Resumen de Reflexiones en Aprender del Error */}
+            <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="text-base">💡</span>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                            Aprender del Error · Registro de Aprendizaje y Superación
+                        </h3>
+                    </div>
+                    <Link href="/admin/academy/aprender-del-error" className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors">
+                        Ir a reflexiones →
+                    </Link>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
+                            Reflexiones Registradas
+                        </span>
+                        <div className="text-xl font-bold font-mono text-white">
+                            {roleSummary.errorReflectionsCount}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1">
+                            Notas personales de situaciones reales y prácticas
+                        </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
+                            Planes en Práctica
+                        </span>
+                        <div className="text-xl font-bold font-mono text-amber-400">
+                            {(progress?.errorReflections || []).filter(r => r.status !== 'completado').length}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1">
+                            Objetivos de mejora en aplicación activa
+                        </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
+                            Planes Consolidados
+                        </span>
+                        <div className="text-xl font-bold font-mono text-emerald-400">
+                            {(progress?.errorReflections || []).filter(r => r.status === 'completado').length}
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1">
+                            Habilidades afianzadas tras reflexión guiada
+                        </p>
+                    </div>
+                </div>
+
+                {/* Frase motivadora en Mi Progreso */}
+                <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5 text-zinc-300">
+                        <span className="text-amber-400 text-sm">✨</span>
+                        <span className="italic text-amber-100/90">
+                            "{MOTIVATIONAL_QUOTES[0].quote}"
+                        </span>
+                    </div>
+                    <Link href="/admin/academy/aprender-del-error" className="shrink-0 font-bold text-amber-400 hover:text-amber-300 text-[11px] self-end sm:self-center">
+                        Ver más frases en Aprender del error →
+                    </Link>
+                </div>
+            </div>
 
             {/* Restablecimiento con confirmación */}
             <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-5 shadow-lg">

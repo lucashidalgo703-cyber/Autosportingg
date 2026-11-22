@@ -87,3 +87,76 @@ export const validateErrorReflection = reflection => {
         errors
     };
 };
+
+// =============================================================================
+// FRASES MOTIVADORAS PARA LA SECCIÓN APRENDER DEL ERROR Y SUPERACIÓN PERSONAL
+// =============================================================================
+
+export const MOTIVATIONAL_QUOTES = [
+    {
+        id: 'q1',
+        quote: 'El error no es lo contrario al éxito: es el dato más valioso para profesionalizar tu técnica y afianzar tu criterio comercial.',
+        author: 'Escuela Comercial AutoSporting',
+        category: 'Aprendizaje'
+    },
+    {
+        id: 'q2',
+        quote: 'Un cliente difícil no es un obstáculo: es la mejor oportunidad para demostrar el valor de AutoSporting, escuchar con atención y generar confianza genuina.',
+        author: 'Filosofía Comercial',
+        category: 'Ventas'
+    },
+    {
+        id: 'q3',
+        quote: 'Cualquiera puede vender regalando precio. Los asesores de excelencia construyen acuerdos sólidos defendiendo la calidad y el valor de cada unidad.',
+        author: 'Negociación Profesional',
+        category: 'Negociación'
+    },
+    {
+        id: 'q4',
+        quote: 'Analizar honestamente qué faltó preguntar hoy es la garantía de que mañana cerrarás la operación con solidez y transparencia.',
+        author: 'Mejora Continua',
+        category: 'Criterio'
+    },
+    {
+        id: 'q5',
+        quote: 'El verdadero profesionalismo no reside en no dudar jamás, sino en registrar la duda, consultar el procedimiento oficial y volver con una propuesta impecable.',
+        author: 'Excelencia Operativa',
+        category: 'Calidad'
+    },
+    {
+        id: 'q6',
+        quote: 'Cada objeción que hoy te desafía es la habilidad que mañana dominarás con total naturalidad en el salón de ventas.',
+        author: 'Venta Consultiva',
+        category: 'Superación'
+    },
+    {
+        id: 'q7',
+        quote: 'La serenidad al negociar no es casualidad: es saber que detrás tenés un equipo que te respalda, stock auditado y reglas claras.',
+        author: 'Cultura AutoSporting',
+        category: 'Confianza'
+    },
+    {
+        id: 'q8',
+        quote: 'No busques la transacción rápida: buscá entender a fondo las necesidades de quien te confía la compra o permuta de su vehículo.',
+        author: 'Servicio al Cliente',
+        category: 'Ventas'
+    },
+    {
+        id: 'q9',
+        quote: 'Registrar un desacierto no te expone frente a tus pares; te convierte en un profesional reflexivo, metódico y cada día más confiable.',
+        author: 'Desarrollo Profesional',
+        category: 'Aprendizaje'
+    },
+    {
+        id: 'q10',
+        quote: 'El éxito en ventas no es casualidad ni suerte: es la suma de preparación técnica, escucha activa y la valentía de aprender de cada contacto.',
+        author: 'AutoSporting Academy',
+        category: 'Superación'
+    }
+];
+
+export const getRandomMotivationalQuote = (currentId = null) => {
+    const pool = currentId ? MOTIVATIONAL_QUOTES.filter(q => q.id !== currentId) : MOTIVATIONAL_QUOTES;
+    const index = Math.floor(Math.random() * pool.length);
+    return pool[index] || MOTIVATIONAL_QUOTES[0];
+};

@@ -108,7 +108,7 @@ export function createLocalProgressRepository(storage, learnerId, locks) {
 }
 
 export function summarizeProgress(progress) {
-    const completed = new Set(progress.completed);
+    const completed = new Set(progress?.completed || []);
     return {
         completed: completed.size,
         total: allLessonIds.length,
@@ -119,20 +119,20 @@ export function summarizeProgress(progress) {
 
 // Resumen del progreso de capacitación práctica por rol
 export function summarizeRoleProgress(progress, track) {
-    const completedSet = new Set(progress.roleModulesCompleted || []);
+    const completedSet = new Set(progress?.roleModulesCompleted || []);
     const trackModuleIds = track?.moduleIds || allRoleModuleIds;
     const completedInTrack = trackModuleIds.filter(id => completedSet.has(id)).length;
     const totalInTrack = trackModuleIds.length;
     const percent = totalInTrack > 0 ? Math.round((completedInTrack / totalInTrack) * 100) : 0;
 
     // Prácticas realizadas (simulaciones)
-    const simulations = progress.roleSimulations || [];
+    const simulations = progress?.roleSimulations || [];
     const passedSimulations = simulations.filter(s => s.score >= 70);
     const trackCaseIds = track?.caseIds || allSimulationIds;
     const completedCasesInTrack = trackCaseIds.filter(cid => simulations.some(s => s.simulationId === cid));
 
     // Competencias demostradas calculadas desde las preguntas y simulaciones
-    const questionsAnswered = progress.roleQuestionsAnswered || {};
+    const questionsAnswered = progress?.roleQuestionsAnswered || {};
     const totalQuestions = Object.keys(questionsAnswered).length;
     const correctQuestions = Object.values(questionsAnswered).filter(q => q.isCorrect).length;
     const questionAccuracy = totalQuestions > 0 ? Math.round((correctQuestions / totalQuestions) * 100) : 0;
@@ -158,8 +158,8 @@ export function summarizeRoleProgress(progress, track) {
         totalQuestionsAnswered: totalQuestions,
         correctQuestions,
         weakModules,
-        errorReflectionsCount: (progress.errorReflections || []).length,
-        sharedReflectionsCount: (progress.sharedErrorReflections || []).length
+        errorReflectionsCount: (progress?.errorReflections || []).length,
+        sharedReflectionsCount: (progress?.sharedErrorReflections || []).length
     };
 }
 

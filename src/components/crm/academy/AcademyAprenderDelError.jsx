@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { useAcademyProgress } from './AcademyProgressProvider';
-import { ERROR_CATEGORIES, IMPROVEMENT_STATUS, createErrorReflection, validateErrorReflection } from '../../../lib/academy/aprenderDelError';
+import { ERROR_CATEGORIES, IMPROVEMENT_STATUS, createErrorReflection, validateErrorReflection, MOTIVATIONAL_QUOTES, getRandomMotivationalQuote } from '../../../lib/academy/aprenderDelError';
 import { ROLE_MODULES } from '../../../lib/academy/roleModules';
 import { ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
 
@@ -14,6 +15,12 @@ export default function AcademyAprenderDelError() {
     const [selectedReflection, setSelectedReflection] = useState(null);
     const [formErrors, setFormErrors] = useState([]);
     const [statusFilter, setStatusFilter] = useState('todos');
+    const [quoteIndex, setQuoteIndex] = useState(0);
+    const activeQuote = MOTIVATIONAL_QUOTES[quoteIndex % MOTIVATIONAL_QUOTES.length];
+
+    const handleNextQuote = () => {
+        setQuoteIndex(prev => (prev + 1) % MOTIVATIONAL_QUOTES.length);
+    };
 
     // Estado del formulario guiado de 5 preguntas
     const [formData, setFormData] = useState({
@@ -149,7 +156,13 @@ export default function AcademyAprenderDelError() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Link
+                            href="/admin/academy/progreso"
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                        >
+                            ← Ver Mi Progreso
+                        </Link>
                         <button
                             type="button"
                             onClick={() => handleOpenCreate()}
@@ -166,6 +179,46 @@ export default function AcademyAprenderDelError() {
                     <span>
                         <strong className="text-zinc-200">Privacidad garantizada:</strong> Tus reflexiones se almacenan únicamente en tu sesión. Tu supervisor NO puede leer tus notas privadas salvo que vos elijas voluntariamente compartir una ficha específica.
                     </span>
+                </div>
+            </div>
+
+            {/* Píldora de Inspiración / Frases Motivadoras para Superación */}
+            <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/25 via-[#0e0e12] to-zinc-950 p-5 shadow-xl relative overflow-hidden group">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-start gap-3.5">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-serif text-2xl font-bold select-none">
+                            ❝
+                        </span>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                    Inspiración para la Mejora Continua
+                                </span>
+                                <span className="text-[10px] text-zinc-500">·</span>
+                                <span className="rounded-full bg-amber-500/10 px-2 py-0.2 text-[9px] font-semibold text-amber-300/80 border border-amber-500/20">
+                                    {activeQuote.category}
+                                </span>
+                            </div>
+                            <p className="text-xs sm:text-sm text-amber-100/90 font-medium italic leading-relaxed">
+                                "{activeQuote.quote}"
+                            </p>
+                            <span className="text-[11px] text-zinc-400 block font-normal">
+                                — {activeQuote.author}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-2 self-end sm:self-center">
+                        <button
+                            type="button"
+                            onClick={handleNextQuote}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-900/30 hover:border-amber-500/50 transition-all cursor-pointer shadow-sm"
+                            title="Ver otra frase motivadora"
+                        >
+                            <span>↻</span>
+                            <span>Otra frase</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -198,6 +251,14 @@ export default function AcademyAprenderDelError() {
                             ))}
                         </div>
                     )}
+
+                    {/* Recordatorio formativo */}
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-950/15 p-3 flex items-center gap-2.5 text-xs text-amber-200/90">
+                        <span className="text-amber-400 text-sm">💡</span>
+                        <span>
+                            <strong>Recordá:</strong> Registrar un desacierto con método y sinceridad es el hábito que distingue a un profesional de alto rendimiento en el salón comercial.
+                        </span>
+                    </div>
 
                     <form onSubmit={handleSaveReflection} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -553,8 +614,32 @@ export default function AcademyAprenderDelError() {
                             </div>
                         </div>
                     ) : (
-                        <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-12 text-center text-zinc-500 text-xs">
-                            Seleccioná una reflexión de la lista para ver su detalle, plan de mejora y opciones de privacidad.
+                        <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-8 sm:p-12 text-center space-y-4">
+                            <div className="flex justify-center">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xl">
+                                    💡
+                                </span>
+                            </div>
+                            <div className="max-w-md mx-auto space-y-2">
+                                <h4 className="text-sm font-bold text-white">
+                                    Convertí cada experiencia en aprendizaje
+                                </h4>
+                                <p className="text-xs text-zinc-400 italic leading-relaxed">
+                                    "{activeQuote.quote}"
+                                </p>
+                                <span className="text-[11px] text-amber-400/80 block">
+                                    — {activeQuote.author}
+                                </span>
+                            </div>
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenCreate()}
+                                    className="rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-black shadow-md transition-all cursor-pointer"
+                                >
+                                    + Registrar Nueva Reflexión
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
