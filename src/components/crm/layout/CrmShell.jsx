@@ -8,6 +8,7 @@ import CrmBottomNav from './CrmBottomNav';
 export default function CrmShell({ children }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const pathname = usePathname();
+    const isAcademyRoute = pathname === '/admin/academy' || pathname.startsWith('/admin/academy/');
 
     const restorePageScroll = () => {
         if (typeof document === 'undefined') return;
@@ -49,6 +50,16 @@ export default function CrmShell({ children }) {
         window.addEventListener('keydown', handleEscape);
         return () => window.removeEventListener('keydown', handleEscape);
     }, [isSidebarOpen]);
+
+    if (isAcademyRoute) {
+        return (
+            <div data-academy-shell className="min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-crm-bg font-sans text-crm-fg">
+                <main className="min-w-0 touch-pan-y overflow-x-hidden pb-[var(--safe-bottom,0px)]">
+                    {children}
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div data-admin-shell className="m-0 flex min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-crm-bg p-0 font-sans text-crm-fg">

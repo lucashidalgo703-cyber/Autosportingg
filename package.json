@@ -53,7 +53,8 @@
     "test:capital:history": "node tests/capitalHistoryPermissions.test.js && node tests/capitalHistoryView.test.js && node tests/integration/capitalHistory.integration.test.js",
     "test:capital:history:browser": "node tests/browser/capitalHistory.browser.mjs",
     "test:stock:loading:browser": "node tests/browser/stockLoading.browser.mjs",
-    "test:database:startup": "node tests/integration/databaseStartup.integration.test.js"
+    "test:database:startup": "node tests/integration/databaseStartup.integration.test.js",
+    "test:academy": "node --test tests/academy*.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

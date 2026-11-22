@@ -16,6 +16,7 @@ const menuGroups = [
             { name: 'Alertas', path: '/admin/alertas', icon: '🔔' },
             { name: 'Reportes', path: '/admin/reportes', icon: '📈' },
             { name: 'Mi Espacio', path: '/admin/mi-espacio', icon: '📂' },
+            { name: 'Academy', path: '/admin/academy', icon: '🎓', prefetch: false },
         ]
     },
     {
@@ -123,6 +124,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
     };
 
     const hasItemPermission = (itemName) => {
+        if (itemName === 'Academy') return true;
         if (itemName === 'Calendario') return hasPermission(user, PERMISSIONS.AGENDA_READ);
         if (itemName === 'Clientes') return hasPermission(user, PERMISSIONS.CLIENTES_READ);
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
