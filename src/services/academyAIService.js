@@ -20,14 +20,95 @@ const MAX_NEGOTIATION_TURNS = 15;
 const MAX_BUYER_TOKENS = 250;
 const MAX_EVAL_TOKENS = 900;
 const AI_TIMEOUT_MS = 12000;
+const MAX_CONCURRENT_AI_REQUESTS = 2;
+const MAX_USER_REQUESTS_PER_MINUTE = 10;
 
-function isLiveAICapable() {
-    const key = process.env.ACADEMY_OPENAI_API_KEY || (process.env.ACADEMY_AI_ENABLED === 'true' ? process.env.OPENAI_API_KEY : null);
-    return Boolean(key && key.trim().length > 10);
+// Estado de consumo y control presupuestario en memoria
+let cumulativeCostUSD = 0;
+let activeAiRequests = 0;
+const userRequestHistory = new Map(); // userId -> timestamps[]
+
+/**
+ * Evalúa el estado de conexión con OpenAI para Academy con triple candado:
+ * 1. Clave dedicada ACADEMY_OPENAI_API_KEY (estrictamente no se reutiliza OPENAI_API_KEY de Codex/CRM).
+ * 2. Flag explícito de servidor ACADEMY_AI_ENABLED === 'true'.
+ * 3. Presupuesto independiente autorizado ACADEMY_AI_BUDGET_USD > 0.
+ */
+export function getAIConnectionStatus(userId = null) {
+    const key = process.env.ACADEMY_OPENAI_API_KEY?.trim();
+    const enabled = process.env.ACADEMY_AI_ENABLED === 'true';
+    const budgetUSD = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
+
+    if (!key || key.length < 10) {
+        return { isCapable: false, reason: 'missing_dedicated_key', message: 'No se configuró ACADEMY_OPENAI_API_KEY dedicada.' };
+    }
+    if (!enabled) {
+        return { isCapable: false, reason: 'disabled_by_config', message: 'ACADEMY_AI_ENABLED no está habilitado explícitamente en el servidor.' };
+    }
+    if (isNaN(budgetUSD) || budgetUSD <= 0) {
+        return { isCapable: false, reason: 'no_budget_authorized', message: 'No se definió un presupuesto ACADEMY_AI_BUDGET_USD independiente y aprobado para Academy.' };
+    }
+    if (cumulativeCostUSD >= budgetUSD) {
+        return { isCapable: false, reason: 'budget_exceeded', message: `Presupuesto asignado a Academy ($${budgetUSD.toFixed(2)} USD) alcanzado o superado ($${cumulativeCostUSD.toFixed(4)} USD gastados).` };
+    }
+    if (activeAiRequests >= MAX_CONCURRENT_AI_REQUESTS) {
+        return { isCapable: false, reason: 'concurrency_limit', message: 'Límite de concurrencia de IA alcanzado.' };
+    }
+    if (userId) {
+        const now = Date.now();
+        const timestamps = (userRequestHistory.get(userId) || []).filter(t => now - t < 60000);
+        if (timestamps.length >= MAX_USER_REQUESTS_PER_MINUTE) {
+            return { isCapable: false, reason: 'rate_limited', message: 'Límite de solicitudes por minuto alcanzado para este usuario.' };
+        }
+    }
+
+    return { isCapable: true, reason: 'authorized', message: 'Conexión OpenAI autorizada y dentro de presupuesto.' };
+}
+
+function isLiveAICapable(userId = null) {
+    return getAIConnectionStatus(userId).isCapable;
 }
 
 function getApiKey() {
-    return process.env.ACADEMY_OPENAI_API_KEY || (process.env.ACADEMY_AI_ENABLED === 'true' ? process.env.OPENAI_API_KEY : '');
+    return process.env.ACADEMY_OPENAI_API_KEY?.trim() || '';
+}
+
+export function resetBudgetTrackerForTesting() {
+    cumulativeCostUSD = 0;
+    activeAiRequests = 0;
+    userRequestHistory.clear();
+}
+
+/**
+ * Validador estricto de servidor para impedir filtración de datos financieros o privados
+ */
+export function checkConfidentialityPolicy(message = '') {
+    if (!message || typeof message !== 'string') return { isForbidden: false };
+    const text = message.toLowerCase();
+
+    // 1. Costos de compra, toma real o márgenes confidenciales de la agencia
+    const costOrMargin = /(costo|precio)\s*(de|del)?\s*(compra|toma|adquisici[oó]n|coste)|cu[aá]nto\s*(cost[oó]|se\s*pag[oó]|le\s*pagamos|pagaron|ganamos|gana)|margen\s*(de|del)?\s*(ganancia|utilidad|bruto|neto|due[ñn]o|agencia|comercial\s*real)|rentabilidad\s*(real|por\s*unidad)|ganancia\s*neta/i;
+
+    // 2. Saldos bancarios, caja fuerte, dinero disponible o tesorería real
+    const treasury = /caja\s*fuerte|caja\s*chica|tesorer[ií]a|extracto\s*bancario|conciliaci[oó]n\s*real|(saldo|dinero|plata|fondos|movimientos).*(caja|banco|cuenta)|cu[aá]nto\s*(dinero|plata|hay).*(caja|banco)/i;
+
+    // 3. Sueldos, salarios o comisiones del personal
+    const salary = /(sueldo|salario|comisi[oó]n|remuneraci[oó]n|honorarios)\s*(de|del|para)?\s*(mi|el|la|los|las|un|una|otro|otra)?\s*(otro|empleado|compa[ñn]ero|vendedor|personal|due[ñn]o|gerente|equipo)/i;
+
+    // 4. Credenciales, contraseñas o tokens
+    const secrets = /(clave|password|contrase[ñn]a|token|api\s*key|credencial|cbu\s*privado|alias\s*privado)/i;
+
+    // 5. Extracción de bases de datos o clientes reales
+    const dataBreach = /(base\s*de\s*datos|clientes?\s*reales?|informaci[oó]n\s*privada\s*del\s*crm|dump|exportar\s*usuarios)/i;
+
+    if (costOrMargin.test(text) || treasury.test(text) || salary.test(text) || secrets.test(text) || dataBreach.test(text)) {
+        return {
+            isForbidden: true,
+            reason: 'Confidencialidad institucional: Como tutor formativo de AutoSporting tengo autorización exclusiva sobre procedimientos operativos, técnicas comerciales, gestoría y facturación. Los costos de compra de las unidades, márgenes financieros, saldos de tesorería e información salarial son confidenciales de la dirección y no forman parte de este espacio educativo.'
+        };
+    }
+
+    return { isForbidden: false };
 }
 
 /**
@@ -110,12 +191,11 @@ export async function generateTutorReply({ userMessage = '', userRole = 'vendedo
         };
     }
 
-    // Filtro de seguridad: Bloquear intentos de consultar costos de compra, márgenes internos o datos bancarios privados
-    const lower = userMessage.toLowerCase();
-    const sensitiveWords = ['margen del dueño', 'costo de compra', 'saldo en caja', 'clave bancaria', 'contraseña', 'salario', 'sueldo de'];
-    if (sensitiveWords.some(w => lower.includes(w))) {
+    // Filtro de seguridad estricto de servidor contra exfiltración de datos confidenciales
+    const confidentialityCheck = checkConfidentialityPolicy(userMessage);
+    if (confidentialityCheck.isForbidden) {
         return {
-            text: 'Como tutor pedagógico de AutoSporting Academy tengo autorización exclusiva sobre procedimientos operativos, técnicas comerciales, gestoría y facturación. Los costos de compra de las unidades, márgenes financieros y datos de caja son confidenciales de la dirección y no forman parte de este espacio educativo.',
+            text: confidentialityCheck.reason,
             provider: 'policy_guard',
             isRealAiConnected: false
         };
@@ -263,6 +343,15 @@ function simulateIndependentEvaluation(scenario, history) {
 
     const hasCriticalError = committedPersonalAccount || promisedUnauthorizedDelivery || guaranteedCreditApproval;
 
+    const declinedUnviableDeal = fullText.includes('no podemos llegar') ||
+                                  fullText.includes('no podemos tomar') ||
+                                  fullText.includes('no podemos acceder') ||
+                                  fullText.includes('respetamos tu decisión') ||
+                                  fullText.includes('respetamos su decisión') ||
+                                  fullText.includes('no es viable') ||
+                                  fullText.includes('no es posible esa rebaja') ||
+                                  fullText.includes('destruye el margen');
+
     // Evaluaciones individuales de competencias
     // 1. Identificación de necesidades (20%)
     let scoreIndagacion = 75;
@@ -277,7 +366,7 @@ function simulateIndependentEvaluation(scenario, history) {
     let scoreComunicacion = 80;
     let quoteComunicacion = sellerMessages[1]?.text || sellerMessages[0]?.text || '';
     let feedbackComunicacion = 'Tono profesional, respetuoso y acorde al estándar comercial de AutoSporting.';
-    if (fullText.includes('tranquilo') || fullText.includes('con gusto') || fullText.includes('te explico con claridad')) {
+    if (fullText.includes('tranquilo') || fullText.includes('con gusto') || fullText.includes('te explico con claridad') || fullText.includes('comprendo') || fullText.includes('por política') || fullText.includes('si le parece')) {
         scoreComunicacion = 92;
         feedbackComunicacion = 'Gran empatía y templanza frente a las objeciones del comprador.';
     }
@@ -293,23 +382,23 @@ function simulateIndependentEvaluation(scenario, history) {
 
     // 4. Manejo de objeciones (20%)
     let scoreObjeciones = 72;
-    let quoteObjeciones = sellerMessages.find(m => m.text.toLowerCase().includes('entiendo') || m.text.toLowerCase().includes('diferencia'))?.text || sellerMessages[0]?.text || '';
+    let quoteObjeciones = sellerMessages.find(m => m.text.toLowerCase().includes('entiendo') || m.text.toLowerCase().includes('diferencia') || m.text.toLowerCase().includes('comprendo'))?.text || sellerMessages[0]?.text || '';
     let feedbackObjeciones = 'Atendió las dudas del cliente sin ponerse a la defensiva.';
-    if (fullText.includes('entiendo') && (fullText.includes('pero') || fullText.includes('analicemos') || fullText.includes('veamos'))) {
+    if (((fullText.includes('entiendo') || fullText.includes('comprendo')) && (fullText.includes('pero') || fullText.includes('analicemos') || fullText.includes('veamos') || fullText.includes('sin embargo'))) || (fullText.includes('precio de lista') && fullText.includes('atención'))) {
         scoreObjeciones = 86;
         feedbackObjeciones = 'Recepción empática: reformuló la objeción hacia la propuesta de valor sin confrontar.';
     }
 
     // 5. Negociación y autorizaciones (15%)
     let scoreAutorizaciones = 85;
-    let quoteAutorizaciones = sellerMessages.find(m => m.text.toLowerCase().includes('autoriz') || m.text.toLowerCase().includes('titular') || m.text.toLowerCase().includes('procedimiento'))?.text || '';
+    let quoteAutorizaciones = sellerMessages.find(m => m.text.toLowerCase().includes('autoriz') || m.text.toLowerCase().includes('titular') || m.text.toLowerCase().includes('procedimiento') || m.text.toLowerCase().includes('margen'))?.text || '';
     let feedbackAutorizaciones = 'Respetó los límites operativos de la agencia.';
     if (hasCriticalError) {
         scoreAutorizaciones = 30;
         feedbackAutorizaciones = 'ERROR CRÍTICO: Se otorgaron o prometieron condiciones no autorizadas por procedimiento (PROC-VTA).';
-    } else if (fullText.includes('consultar con el titular') || fullText.includes('procedimiento') || fullText.includes('cuenta oficial')) {
+    } else if (declinedUnviableDeal || fullText.includes('consultar con el titular') || fullText.includes('procedimiento') || fullText.includes('cuenta oficial') || fullText.includes('autoriz')) {
         scoreAutorizaciones = 95;
-        feedbackAutorizaciones = 'Excelente apego a procedimientos: condicionó descuentos y reservas a la aprobación formal.';
+        feedbackAutorizaciones = 'Excelente apego a procedimientos: defendió la rentabilidad de la agencia o condicionó descuentos a la aprobación formal.';
     }
 
     // 6. Cierre o próximo paso (10%)
@@ -334,10 +423,10 @@ function simulateIndependentEvaluation(scenario, history) {
     let outcomeStatus = 'seguimiento_agendado';
     if (hasCriticalError) {
         outcomeStatus = 'sin_acuerdo_error_grave';
+    } else if (declinedUnviableDeal) {
+        outcomeStatus = 'desistido_con_criterio';
     } else if (weightedScore >= 82) {
         outcomeStatus = 'acuerdo_cerrado';
-    } else if (fullText.includes('no podemos llegar a ese número') || fullText.includes('respetamos tu decisión')) {
-        outcomeStatus = 'desistido_con_criterio';
     }
 
     const strengths = [
@@ -371,7 +460,7 @@ function simulateIndependentEvaluation(scenario, history) {
 
     return {
         scenarioId: scenario.id,
-        score: hasCriticalError ? Math.min(weightedScore, 50) : weightedScore,
+        score: hasCriticalError ? Math.min(weightedScore, 40) : (declinedUnviableDeal ? Math.max(weightedScore, 85) : weightedScore),
         outcomeStatus,
         competencies: {
             identificacionNecesidades: { score: scoreIndagacion, feedback: feedbackIndagacion, quote: quoteIndagacion.slice(0, 120) },

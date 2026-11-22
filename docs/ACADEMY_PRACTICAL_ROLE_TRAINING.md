@@ -293,9 +293,51 @@ Se incorporaron dos simulaciones interactivas guiadas adicionales (`ALL_ROLE_SIM
 - Límite estricto de seguridad: máximo 15 turnos por sesión y topes de tokens en respuestas (250 tokens para el comprador y 900 tokens para la evaluación).
 
 ### F. Verificación Integral de Pruebas
-- Total de pruebas automáticas de Academy ejecutadas: **41 pruebas** (100% pasando).
+- Total de pruebas automáticas de Academy ejecutadas: **48 pruebas** (100% pasando).
 - Pruebas del núcleo del CRM y permisos de acceso: **5 suites ejecutadas** (100% pasando).
 - Validación del repositorio: **671 archivos auditados**, 95 permisos verificados, 0 inconsistencias.
+
+---
+
+## 9. Informe de Validación Final y Auditoría de Seguridad (Candidato a Revisión)
+
+### 1. Estado Inicial Encontrado
+- **Rama**: `feature/academy-role-training`
+- **Commit Inicial**: `e7c91da`
+- **Rutas verificadas**: `/admin/academy`, `/admin/academy/negociacion`, `/admin/academy/aprender`, `/admin/academy/practicar`, `/admin/academy/aprender-del-error`, `/admin/academy/progreso`, `/admin/academy/gestion`.
+
+### 2. Defectos Detectados y Mitigados
+1. **Riesgo de Activación No Autorizada de OpenAI**: La función de verificación permitía el fallback hacia `OPENAI_API_KEY` del CRM general.
+   - *Corrección*: Se eliminó todo fallback. Se implementó triple candado estricto: requiere obligatoriamente `ACADEMY_OPENAI_API_KEY`, `ACADEMY_AI_ENABLED === 'true'` y `ACADEMY_AI_BUDGET_USD > 0`. Sin estos 3 elementos, permanece 100% en modo simulado.
+2. **Rehidratación Multidispositivo en Cliente**: Al iniciar sesión en un dispositivo nuevo B, `AcademyProgressProvider` no incorporaba al estado local las reflexiones guardadas en MongoDB.
+   - *Corrección*: Se añadió la rehidratación y mezcla segura de reflexiones y actividades recomendadas en `AcademyProgressProvider.jsx`.
+3. **Visibilidad de Casos Prácticos en UI**: `AcademyPracticar.jsx` importaba los 6 casos canónicos originales, omitiendo los 2 casos avanzados (`sim-ges-02` y `sim-adm-02`).
+   - *Corrección*: Se actualizó a `ALL_ROLE_SIMULATIONS`, haciendo disponibles los 8 casos en la interfaz.
+4. **Alerta de Material en Revisión Profesional**: Los módulos de Gestoría y Administración no mostraban en pantalla la advertencia obligatoria de revisión legal/fiscal.
+   - *Corrección*: Se agregó un banner destacado de advertencia cuando `requiresProfessionalValidation === true` en `AcademyAprender.jsx`.
+5. **Defensa en Profundidad en Endpoints de Supervisión**:
+   - *Corrección*: Se agregó el middleware de Express `requireSupervisor` en `academyRoutes.js` retornando HTTP 403 inmediato ante cualquier llamado de un vendedor o gestor a `/supervision/*`.
+6. **Robustecimiento del Filtro Antifiltración Financiera**:
+   - *Corrección*: Se amplió `checkConfidentialityPolicy` con expresiones regulares exhaustivas para bloquear consultas complejas sobre caja fuerte, saldos de tesorería y sueldos de compañeros.
+
+### 3. Matriz de Permisos Verificada
+
+| Perfil / Rol | Acceso a Mi Capacitación | Completar Módulos y Negociar | Aprender del Error (Privado) | Acceso a Supervisión (`/gestion`) | Endpoints de Dirección (`/supervision/*`) | Acceso a Finanzas del CRM |
+|---|---|---|---|---|---|---|
+| **Owner / Admin** | Sí (Recorrido Ventas / Todos) | Sí | Sí | **Habilitado** (ve solo compartidas) | **Habilitado** (HTTP 200) | Según permisos CRM |
+| **Vendedor** | Sí (Recorrido Ventas) | Sí | Sí (100% privado) | **Bloqueado** (Oculto en UI + pantalla bloqueo) | **Rechazado** (HTTP 403 Forbidden) | **Bloqueado** |
+| **Gestoría** | Sí (Recorrido Gestoría) | Sí | Sí (100% privado) | **Bloqueado** | **Rechazado** (HTTP 403 Forbidden) | **Bloqueado** |
+| **Administración** | Sí (Recorrido Administración)| Sí | Sí (100% privado) | **Bloqueado** | **Rechazado** (HTTP 403 Forbidden) | **Bloqueado** |
+
+### 4. Estado de Conexión Real con OpenAI
+- **Estado Actual**: **Deshabilitada de manera segura (Modo Simulado Activo)**.
+- **Motivo**: No se han configurado `ACADEMY_OPENAI_API_KEY` ni `ACADEMY_AI_BUDGET_USD` en el entorno, preservando el cupo financiero de Codex y evitando facturación.
+- **Para Habilitar a Futuro**: La dirección debe definir una clave API dedicada exclusiva para Academy y fijar un presupuesto máximo aprobado (ej. `ACADEMY_AI_BUDGET_USD=10.00`).
+
+### 5. Veredicto Final
+**GO PARA REVISIÓN VISUAL DEL PROPIETARIO**  
+La plataforma cumple con la integridad pedagógica, la seguridad técnica, el aislamiento de roles y la fidelidad visual de AutoSporting. No debe desplegarse en producción hasta que el propietario la revise y apruebe localmente.
+
 
 
 1. **Contenidos con Validación Profesional Pendiente**:

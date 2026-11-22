@@ -127,6 +127,27 @@ export async function recordRoleModuleCompletion(user, moduleId, trackId) {
 }
 
 /**
+ * Registra una simulación de caso de negocio completada.
+ */
+export async function recordSimulationAttempt(user, simData = {}) {
+    const progress = await getUserProgress(user);
+    if (!simData.simulationId) return progress;
+
+    progress.simulationAttempts.push({
+        simulationId: simData.simulationId,
+        score: typeof simData.score === 'number' ? simData.score : 0,
+        passed: Boolean(simData.passed ?? (simData.score >= 70)),
+        decisions: simData.decisions || [simData.selectedOption].filter(Boolean),
+        feedback: simData.feedback || '',
+        completedAt: new Date()
+    });
+
+    progress.lastActiveAt = new Date();
+    await progress.save();
+    return progress;
+}
+
+/**
  * Registra una sesión de negociación completada con su evaluación.
  */
 export async function recordNegotiationSession(user, sessionData) {

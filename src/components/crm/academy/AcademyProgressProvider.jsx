@@ -51,10 +51,33 @@ function LearnerProgress({ learnerId, children }) {
                             ...(prev.roleModulesCompleted || []),
                             ...(backendProgress.completedRoleModules || []).map(m => m.moduleId)
                         ]));
+                        // Sincronizar reflexiones de error desde backend (persistencia multidispositivo)
+                        const existingReflectionIds = new Set((prev.errorReflections || []).map(r => String(r.id || r._id)));
+                        const backendReflections = (backendProgress.errorReflections || []).map(r => ({
+                            id: String(r._id || r.id),
+                            titulo: r.situation?.slice(0, 80) || 'Reflexión guardada',
+                            quePaso: r.situation,
+                            categoria: 'ventas',
+                            informacion: r.difficultyEncountered,
+                            otraManera: r.alternativeApproach,
+                            criterio: 'Procedimiento institucional',
+                            planMejora: r.alternativeApproach,
+                            linkedModuleId: r.reinforcementModuleId,
+                            compartidoConSupervisor: Boolean(r.sharedWithSupervisor),
+                            fechaCompartido: r.sharedAt,
+                            status: 'en_progreso'
+                        }));
+                        const mergedReflections = [
+                            ...(prev.errorReflections || []),
+                            ...backendReflections.filter(r => !existingReflectionIds.has(r.id))
+                        ];
+
                         return {
                             ...prev,
                             completed: mergedLessons,
                             roleModulesCompleted: mergedRoleModules,
+                            errorReflections: mergedReflections,
+                            sharedErrorReflections: mergedReflections.filter(r => r.compartidoConSupervisor),
                             assignedTrack: backendProgress.assignedTrack || prev.assignedTrack,
                             recommendedActivities: backendProgress.recommendedActivities?.length
                                 ? backendProgress.recommendedActivities
@@ -127,13 +150,23 @@ function LearnerProgress({ learnerId, children }) {
                 roleModulesCompleted: [...new Set([...(previous.roleModulesCompleted || []), moduleId])]
             }));
         },
-        recordRoleSimulation: simAttempt => update(previous => ({
-            ...previous,
-            roleSimulations: [
-                ...(previous.roleSimulations || []).filter(s => s.simulationId !== simAttempt.simulationId || s.score < simAttempt.score),
-                { ...simAttempt, at: new Date().toISOString() }
-            ]
-        })),
+        recordRoleSimulation: simAttempt => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (token) {
+                fetch('/api/admin/academy/simulation/record', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(simAttempt)
+                }).catch(() => {});
+            }
+            return update(previous => ({
+                ...previous,
+                roleSimulations: [
+                    ...(previous.roleSimulations || []).filter(s => s.simulationId !== simAttempt.simulationId || s.score < simAttempt.score),
+                    { ...simAttempt, at: new Date().toISOString() }
+                ]
+            }));
+        },
         recordRoleQuestion: (questionId, isCorrect, optionIndex) => update(previous => ({
             ...previous,
             roleQuestionsAnswered: {

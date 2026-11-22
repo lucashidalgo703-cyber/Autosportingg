@@ -169,6 +169,26 @@ export default function AcademyAprender() {
                                 {currentModule.objective}
                             </p>
                         </div>
+
+                        {/* Estado de validación técnica y profesional */}
+                        {currentModule.requiresProfessionalValidation ? (
+                            <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3.5 flex items-start gap-3">
+                                <span className="text-amber-400 text-base mt-0.5">⚠️</span>
+                                <div className="text-xs">
+                                    <span className="font-bold text-amber-300 uppercase tracking-wider block mb-0.5">
+                                        Material Formativo en Revisión Profesional
+                                    </span>
+                                    <p className="text-zinc-300 leading-relaxed">
+                                        {currentModule.validationNote || 'Contenido legal, fiscal o registral sujeto a verificación periódica por el Contador Público o Gestor matriculado de AutoSporting.'}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-3 flex items-center gap-2 text-xs text-zinc-400">
+                                <span className="text-emerald-400">✓</span>
+                                <span>{currentModule.validationNote || 'Procedimiento operativo interno aprobado por Dirección.'}</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Explicación y relevancia en el negocio */}
