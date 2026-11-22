@@ -32,6 +32,40 @@ function LearnerProgress({ learnerId, children }) {
         const onVisibility = () => { if (!document.hidden && repository.current) refresh(); };
         window.addEventListener('storage', onStorage);
         document.addEventListener('visibilitychange', onVisibility);
+
+        // Sincronización transparente con backend MongoDB (persistencia multidispositivo)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (token && learnerId) {
+            fetch('/api/admin/academy/progress', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.ok ? res.json() : null)
+            .then(backendProgress => {
+                if (backendProgress) {
+                    update(prev => {
+                        const mergedLessons = Array.from(new Set([
+                            ...(prev.completed || []),
+                            ...(backendProgress.completedLessons || []).map(l => l.lessonId)
+                        ]));
+                        const mergedRoleModules = Array.from(new Set([
+                            ...(prev.roleModulesCompleted || []),
+                            ...(backendProgress.completedRoleModules || []).map(m => m.moduleId)
+                        ]));
+                        return {
+                            ...prev,
+                            completed: mergedLessons,
+                            roleModulesCompleted: mergedRoleModules,
+                            assignedTrack: backendProgress.assignedTrack || prev.assignedTrack,
+                            recommendedActivities: backendProgress.recommendedActivities?.length
+                                ? backendProgress.recommendedActivities
+                                : prev.recommendedActivities
+                        };
+                    });
+                }
+            })
+            .catch(err => console.warn('[Academy Backend Sync] Offline o local mode:', err.message));
+        }
+
         return () => {
             window.removeEventListener('storage', onStorage);
             document.removeEventListener('visibilitychange', onVisibility);
@@ -64,15 +98,35 @@ function LearnerProgress({ learnerId, children }) {
         progress,
         storageError,
         // Legacy financial courses methods (100% compatibles)
-        completeLesson: id => update(previous => ({ ...previous, completed: [...previous.completed, id], lastLesson: id })),
+        completeLesson: id => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (token) {
+                fetch('/api/admin/academy/lesson/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ lessonId: id })
+                }).catch(() => {});
+            }
+            return update(previous => ({ ...previous, completed: [...previous.completed, id], lastLesson: id }));
+        },
         recordAttempt: attempt => update(previous => ({ ...previous, attempts: [...previous.attempts, { ...attempt, at: new Date().toISOString() }] })),
         recordDecision: decision => update(previous => ({ ...previous, decisions: [...previous.decisions, { ...decision, at: new Date().toISOString() }] })),
 
         // Role-based training methods
-        completeRoleModule: moduleId => update(previous => ({
-            ...previous,
-            roleModulesCompleted: [...new Set([...(previous.roleModulesCompleted || []), moduleId])]
-        })),
+        completeRoleModule: moduleId => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (token) {
+                fetch('/api/admin/academy/module/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ moduleId })
+                }).catch(() => {});
+            }
+            return update(previous => ({
+                ...previous,
+                roleModulesCompleted: [...new Set([...(previous.roleModulesCompleted || []), moduleId])]
+            }));
+        },
         recordRoleSimulation: simAttempt => update(previous => ({
             ...previous,
             roleSimulations: [
@@ -87,17 +141,34 @@ function LearnerProgress({ learnerId, children }) {
                 [questionId]: { isCorrect, optionIndex, at: new Date().toISOString() }
             }
         })),
-        addErrorReflection: reflection => update(previous => {
-            const errs = [...(previous.errorReflections || []), reflection];
-            const shared = reflection.compartidoConSupervisor
-                ? [...(previous.sharedErrorReflections || []), reflection]
-                : (previous.sharedErrorReflections || []);
-            return {
-                ...previous,
-                errorReflections: errs,
-                sharedErrorReflections: shared
-            };
-        }),
+        addErrorReflection: reflection => {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (token) {
+                fetch('/api/admin/academy/reflection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        situation: reflection.quePaso || reflection.titulo,
+                        actionTaken: reflection.quePaso || '',
+                        difficultyEncountered: reflection.informacion || '',
+                        alternativeApproach: reflection.otraManera || '',
+                        reinforcementModuleId: reflection.linkedModuleId || '',
+                        sharedWithSupervisor: Boolean(reflection.compartidoConSupervisor)
+                    })
+                }).catch(() => {});
+            }
+            return update(previous => {
+                const errs = [...(previous.errorReflections || []), reflection];
+                const shared = reflection.compartidoConSupervisor
+                    ? [...(previous.sharedErrorReflections || []), reflection]
+                    : (previous.sharedErrorReflections || []);
+                return {
+                    ...previous,
+                    errorReflections: errs,
+                    sharedErrorReflections: shared
+                };
+            });
+        },
         updateErrorReflection: (id, updates) => update(previous => {
             const errs = (previous.errorReflections || []).map(r => r.id === id ? { ...r, ...updates } : r);
             const target = errs.find(r => r.id === id);

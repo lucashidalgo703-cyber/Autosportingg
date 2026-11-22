@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useAcademyProgress } from './AcademyProgressProvider';
 import { ERROR_CATEGORIES, IMPROVEMENT_STATUS, createErrorReflection, validateErrorReflection } from '../../../lib/academy/aprenderDelError';
@@ -29,6 +29,34 @@ export default function AcademyAprenderDelError() {
         fechaCompromiso: '',
         compartidoConSupervisor: false
     });
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const draftRaw = sessionStorage.getItem('academy_reflection_draft');
+            if (draftRaw) {
+                try {
+                    const draft = JSON.parse(draftRaw);
+                    sessionStorage.removeItem('academy_reflection_draft');
+                    setFormData(prev => ({
+                        ...prev,
+                        titulo: draft.situation?.slice(0, 80) || 'Reflexión sobre práctica de negociación',
+                        categoria: 'ventas',
+                        quePaso: draft.situation || '',
+                        informacion: draft.difficultyEncountered || '',
+                        otraManera: draft.alternativeApproach || '',
+                        criterio: 'Aplicar procedimiento de defensa de valor, consulta previa y anclaje técnico.',
+                        planMejora: `Repasar módulo formativo y volver a ejercitar en el simulador de negociación.`,
+                        linkedModuleId: draft.reinforcementModuleId || '',
+                        fechaCompromiso: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+                        compartidoConSupervisor: false
+                    }));
+                    setIsCreating(true);
+                } catch {
+                    // Ignorar error de parsing
+                }
+            }
+        }
+    }, []);
 
     const reflections = progress?.errorReflections || [];
 

@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { useAcademyProgress } from './AcademyProgressProvider';
 import { ROLE_TRACKS } from '../../../lib/academy/catalog';
 import { ROLE_MODULES, MODULE_STATUS } from '../../../lib/academy/roleModules';
 import { ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
+import { COMPETENCY_DEFINITIONS } from '../../../lib/academy/negotiationScenarios';
 
 // Colaboradores ficticios simulados para demostración en Comodoro Rivadavia
 const INITIAL_TEAM_MEMBERS = [
@@ -57,6 +58,41 @@ export default function AcademyGestion() {
     const [selectedMember, setSelectedMember] = useState(INITIAL_TEAM_MEMBERS[0]);
     const [recommendationSent, setRecommendationSent] = useState('');
     const [selectedModuleToRecommend, setSelectedModuleToRecommend] = useState(ROLE_MODULES[1].id);
+    const [teamData, setTeamData] = useState(null);
+    const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+
+    useEffect(() => {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (!token || !isSupervisor) return;
+
+        setIsLoadingTeam(true);
+        fetch('/api/admin/academy/supervision/team', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+            if (data && Array.isArray(data.team) && data.team.length > 0) {
+                setTeamData(data);
+                const mapped = data.team.map(u => ({
+                    id: u.userId,
+                    name: u.name,
+                    email: u.email,
+                    role: u.role,
+                    roleLabel: u.role === 'ventas' ? 'Vendedor' : u.role === 'gestor' ? 'Gestoría' : 'Administración',
+                    assignedTrack: u.assignedTrack || 'ventas',
+                    completedModulesCount: u.completedRoleModulesCount || 0,
+                    simulationsPassed: u.negotiationAttemptsCount || 0,
+                    avgNegotiationScore: u.avgNegotiationScore,
+                    weakAreas: [],
+                    lastActive: u.lastActiveAt || new Date().toISOString()
+                }));
+                setTeamMembers(mapped);
+                setSelectedMember(mapped[0]);
+            }
+        })
+        .catch(err => console.warn('[Supervision API]', err.message))
+        .finally(() => setIsLoadingTeam(false));
+    }, [isSupervisor]);
 
     // Si no es supervisor, mostrar pantalla de acceso restringido
     if (!isSupervisor) {
@@ -161,6 +197,25 @@ export default function AcademyGestion() {
                     </span>
                 </div>
 
+                {teamData?.teamWeaknesses && teamData.teamWeaknesses.length > 0 && (
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                            <span>Detección de Áreas Débiles del Equipo (Simulador IA)</span>
+                            <span className="text-[11px] text-zinc-500 font-normal">{teamData.totalNegotiations} negociaciones analizadas</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {teamData.teamWeaknesses.map(tw => (
+                                <div key={tw.competency} className="bg-zinc-900 border border-zinc-800/80 p-2 rounded text-xs flex justify-between items-center">
+                                    <span className="text-zinc-400 capitalize">{tw.competency.replace(/([A-Z])/g, ' $1')}</span>
+                                    <span className={`font-mono font-bold ${tw.avgScore >= 80 ? 'text-emerald-400' : tw.avgScore >= 65 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                        {tw.avgScore !== null ? `${tw.avgScore}%` : 'S/D'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                         <thead>
@@ -176,7 +231,8 @@ export default function AcademyGestion() {
                         <tbody className="divide-y divide-zinc-800/60">
                             {teamMembers.map((m) => {
                                 const track = ROLE_TRACKS[m.assignedTrack] || ROLE_TRACKS.comun;
-                                const percent = Math.round((m.completedModules.length / track.moduleIds.length) * 100);
+                                const doneCount = m.completedModules?.length || m.completedModulesCount || 0;
+                                const percent = Math.min(100, Math.round((doneCount / track.moduleIds.length) * 100));
                                 const isSelected = selectedMember?.id === m.id;
 
                                 return (
@@ -217,7 +273,14 @@ export default function AcademyGestion() {
                                             </div>
                                         </td>
                                         <td className="py-3.5 px-3 text-center font-mono text-emerald-400 font-bold">
-                                            {m.simulationsPassed} aprobadas
+                                            <div className="flex flex-col items-center">
+                                                <span>{m.simulationsPassed} prácticas</span>
+                                                {typeof m.avgNegotiationScore === 'number' && (
+                                                    <span className="text-[10px] text-zinc-400 font-normal">
+                                                        IA: <strong className={m.avgNegotiationScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}>{m.avgNegotiationScore}/100</strong>
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="py-3.5 px-3 text-[11px] text-zinc-500">
                                             {new Date(m.lastActive).toLocaleDateString('es-AR')}

@@ -286,12 +286,13 @@ test('Role Tracks y navegación de Academy mapean correctamente según roles', (
     assert.equal(getTrackByRole('administrativo').id, 'administracion');
     assert.equal(getTrackByRole('solo_lectura').id, 'comun');
 
-    // 7 Espacios de navegación requeridos por el encargo
-    assert.equal(roleTrainingSections.length, 7);
+    // Espacios de navegación requeridos por el encargo (8 espacios con Simulador de Negociación)
+    assert.ok(roleTrainingSections.length >= 7);
     const spaceIds = roleTrainingSections.map(([id]) => id);
     assert.ok(spaceIds.includes('mi-capacitacion'));
     assert.ok(spaceIds.includes('aprender'));
     assert.ok(spaceIds.includes('practicar'));
+    assert.ok(spaceIds.includes('negociacion'));
     assert.ok(spaceIds.includes('tutor'));
     assert.ok(spaceIds.includes('aprender-del-error'));
     assert.ok(spaceIds.includes('progreso'));

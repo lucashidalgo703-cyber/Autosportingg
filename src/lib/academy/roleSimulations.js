@@ -450,7 +450,159 @@ Al abrir la orden de venta borrador en el CRM y verificar el extracto bancario, 
     }
 ];
 
-export const getSimulationById = id => ROLE_SIMULATIONS.find(s => s.id === id);
+export const ENHANCED_ROLE_SIMULATIONS = [
+    // =========================================================================
+    // CASO 7 (Gestoría Avanzada): Inconsistencia registral crítica de última hora
+    // =========================================================================
+    {
+        id: 'sim-ges-02',
+        title: 'Embargo latente en informe de dominio e inhibición a 24 hs de la entrega',
+        role: 'gestoria',
+        roleLabel: 'Gestoría Integral',
+        estimatedMinutes: 10,
+        context: `Faltan 24 horas para la entrega pactada de una Jeep Compass 2021 de stock.
+El comprador ya canceló la diferencia y el vendedor le aseguró por WhatsApp que "mañana a las 10:00 hs se lleva la camioneta con el moño puesto".
+Sin embargo, al aplicar el control final de re-chequeo registral (PROC-GES-02) antes de ingresar el trámite en el Registro Seccional N° 2 de Comodoro Rivadavia, el sistema DNRPA arroja una novedad crítica:
+Se trabó un embargo judicial por $1.850.000 sobre el automotor derivado de un juicio laboral iniciado contra el titular registral de la unidad, quien la entregó en permuta hace 20 días.
+El vendedor se acerca desesperado a tu escritorio:
+"No podés frenar la entrega ahora. El cliente viene con toda la familia desde Caleta Olivia a buscarla. Entregale la chata con un permiso de circulación o la tarjeta verde y la semana que viene intimamos al dueño anterior para que pague el embargo".`,
+        objective: 'Respetar el protocolo estricto de seguridad registral previa a la entrega (PROC-GES-03), frenar la salida física del vehículo con traba judicial y coordinar una comunicación transparente protegiendo la responsabilidad civil y penal de la agencia.',
+        availableInfo: [
+            { label: 'Situación legal registral', value: 'Vehículo con medida cautelar de embargo trabada. La DNRPA no inscribirá la transferencia a favor del nuevo comprador hasta que no se presente el oficio de levantamiento debidamente librado por el juzgado interviniente.' },
+            { label: 'Riesgo de entrega prematura', value: 'Si el cliente retira la camioneta embargada, la agencia incurre en incumplimiento contractual grave y eventual estafa por vender y entregar un bien litigioso/embargado sin saneamiento.' },
+            { label: 'Convenio de toma de permuta', value: 'El titular anterior firmó en la toma el compromiso de mantener la unidad libre de todo gravamen, embargo o inhibición, respondiendo por evicción y vicios redhibitorios.' }
+        ],
+        decisions: [
+            {
+                id: 'opt-a',
+                title: 'Ceder a la presión y entregar la camioneta con promesa de subsanar luego',
+                action: 'Accedés al pedido del vendedor: entregás la Jeep Compass con duplicado de llave y le decís al comprador que la transferencia "está demorada por feria del registro".',
+                outcome: 'Desastre institucional. El juzgado notifica la traba a la policía de tránsito, y en un control en Ramón Santos secuestran la camioneta con la familia del comprador a bordo. El cliente denuncia penalmente a AutoSporting por desbaratamiento de derechos y estafa. La reputación de la agencia se derrumba en la región.',
+                score: 0,
+                rubricBreakdown: {
+                    seguridadRegistral: 0,
+                    controlNormativo: 0,
+                    gestionContingencias: 0,
+                    comunicacionCoordinada: 0
+                },
+                feedback: 'Falta gravísima. Jamás debe entregarse una unidad con gravamen o embargo activo. Viola el deber de custodia y las garantías registrales de AutoSporting.'
+            },
+            {
+                id: 'opt-b',
+                title: 'Bloquear entrega en CRM, notificar a Dirección y gestionar levantamiento formal',
+                action: 'Frenás inmediatamente la entrega en el CRM cambiando el estado a "BLOQUEADO POR TRABA REGISTRAL", avisás a Dirección y llamás de urgencia al titular anterior: "Don Carlos, ingresó un embargo de un juzgado laboral sobre la Compass. Conforme a la cláusula de evicción de la toma, necesitamos el depósito judicial o el oficio de levantamiento en 24 hs". Paralelamente, junto con Dirección y el vendedor, llaman al comprador de Caleta Olivia con franqueza profesional: le explican que el sistema preventivo de AutoSporting detectó una traba externa del titular original antes de que sufra un perjuicio en el registro, que la agencia le asigna un vehículo de cortesía sin cargo para que no pierda su viaje y que la entrega se reprograma con la garantía de dominio 100% libre.',
+                outcome: 'El titular anterior se presenta esa misma tarde en la agencia con su abogado y deposita los fondos para liberar el embargo. El comprador agradece profundamente la honestidad y la cobertura del auto de cortesía: comprende que AutoSporting lo protegió de comprar un auto embargado. El trámite se ingresa saneado el martes siguiente.',
+                score: 100,
+                rubricBreakdown: {
+                    seguridadRegistral: 100,
+                    controlNormativo: 100,
+                    gestionContingencias: 100,
+                    comunicacionCoordinada: 100
+                },
+                feedback: '¡Excelente resolución profesional! Salvaguardó la seguridad jurídica, ejecutó la garantía de la toma y convirtió una crisis en una demostración palpable de confianza para el comprador.'
+            },
+            {
+                id: 'opt-c',
+                title: 'Cancelar la venta de inmediato y devolver el dinero sin intentar subsanar',
+                action: 'Le decís al vendedor que la operación se canceló, le reintegrás los fondos al cliente y rechazás la operación sin hablar con el titular vendedor ni con la dirección.',
+                outcome: 'Se pierde una operación comercial sólida de forma prematura. El comprador queda frustrado por la cancelación intempestiva y la agencia pierde la comisión y los gastos ya incurridos sin darle al titular anterior la posibilidad de subsanar el oficio de embargo.',
+                score: 40,
+                rubricBreakdown: {
+                    seguridadRegistral: 70,
+                    controlNormativo: 50,
+                    gestionContingencias: 20,
+                    comunicacionCoordinada: 30
+                },
+                feedback: 'Regular. Protegió la seguridad registral pero careció de gestión de contingencias comercial y articulación con Dirección y Legales.'
+            }
+        ],
+        rubricCriteria: [
+            { name: 'Seguridad registral irrestricta', description: 'Impedir entrega física sin dominio libre o con medidas cautelares activas.' },
+            { name: 'Control normativo y procedimental', description: 'Aplicación estricta de PROC-GES-02 y cláusulas de evicción de permutas.' },
+            { name: 'Gestión de contingencias operativas', description: 'Activación de vehículos de cortesía y negociación rápida con titular anterior.' },
+            { name: 'Comunicación y trazabilidad', description: 'Coordinación fluida y transparente con el comprador, Ventas y Dirección.' }
+        ]
+    },
+
+    // =========================================================================
+    // CASO 8 (Administración Avanzada): Retenciones fiscales de IIBB no contempladas y consulta contable
+    // =========================================================================
+    {
+        id: 'sim-adm-02',
+        title: 'Retención de IIBB Chubut no acreditada, saldo dispar y consulta al contador',
+        role: 'administracion',
+        roleLabel: 'Administración y Facturación',
+        estimatedMinutes: 10,
+        context: `La empresa constructora "Patagonia Vial SA" adquiere una pickup de stock por $20.000.000.
+Al revisar la cuenta bancaria de AutoSporting, ingresa una transferencia por exactamente $19.200.000 (faltan $800.000 para el precio pactado).
+El responsable de compras de la empresa envía un correo adjuntando el comprobante bancario con una nota escueta:
+"Descontamos $800.000 en concepto de retención de Ingresos Brutos de la Provincia del Chubut y Ganancias según nuestra condición de agente de retención".
+Sin embargo:
+1. No adjuntan los certificados oficiales de retención (F. 817 de AFIP ni la constancia oficial de Rentas Chubut con firma digital).
+2. El vendedor te pide: "Imputale los $800.000 a descuento comercial de la agencia para no trabar la operación, emitiles la factura por 20 millones y entregales la unidad hoy mismo que están apurados".`,
+        objective: 'Auditar con rigor impositivo las deducciones por retenciones en cobranzas, exigir certificados oficiales válidos y consultar de inmediato al estudio contable de la agencia antes de modificar precios o emitir facturas definitivas.',
+        availableInfo: [
+            { label: 'Exigencia de certificados', value: 'Una retención tributaria deducida por un cliente SOLO puede computarse como pago válido si se entrega el certificado oficial timbrado con fecha, alícuota y número de constancia verificable.' },
+            { label: 'Impacto de imputar a descuento comercial', value: 'Si el vendedor disfraza la retención como descuento, la agencia asume un quebranto de $800.000 en su resultado y pierde el crédito fiscal que le corresponde descontar en su declaración jurada mensual de Rentas.' },
+            { label: 'Consulta al contador', value: 'Ante disparidades de alícuotas o deducciones de agentes de retención provinciales, debe validarse en el padrón de la DGR Chubut si la agencia está sujeta a retención por esa actividad.' }
+        ],
+        decisions: [
+            {
+                id: 'opt-a',
+                title: 'Aceptar el descuento comercial y entregar la pickup sin los certificados',
+                action: 'Modificás la orden en el CRM bajando el precio a $19.200.000 para que coincida con la plata que entró en el banco, emitís la factura y autorizás la entrega.',
+                outcome: 'Quebranto financiero. A fin de mes, el contador advierte que la agencia regaló $800.000 de margen neto porque la empresa cliente nunca presentó los certificados y no hay crédito fiscal computable. El vendedor cobró comisión plena sobre un número ficticio y Dirección sanciona al área de Administración por descontrol contable.',
+                score: 10,
+                rubricBreakdown: {
+                    conciliacionBancaria: 30,
+                    controlFiscal: 0,
+                    consultaContable: 0,
+                    gestionCobranzas: 10
+                },
+                feedback: 'Pésima decisión. Viola el procedimiento de cobranzas y regala margen de la agencia asumiendo deducciones fiscales sin respaldo documental.'
+            },
+            {
+                id: 'opt-b',
+                title: 'Frenar factura definitiva, exigir certificados formales y validar con el contador',
+                action: 'Mantenés la orden como cobro parcial por $19.200.000 con saldo pendiente de $800.000. Notificás de inmediato a Patagonia Vial SA: "Estimados, para poder imputar los $800.000 requerimos el envío de los Certificados de Retención oficiales de AFIP y Rentas Chubut conforme a la RG vigente". En paralelo, enviás un WhatsApp/correo al contador externo de AutoSporting con el CUIT del cliente para verificar la alícuota en el padrón de Chubut. Explicás a Ventas que la entrega se libera una vez que ingresen los certificados o el cliente transfiera el saldo en garantía hasta su presentación.',
+                outcome: 'El contador confirma que la alícuota de retención de la empresa constructora era correcta pero que la agencia debe registrar el crédito fiscal en su aplicativo de IIBB. La empresa envía los certificados formales esa misma tarde por correo electrónico con firma digital. Administración emite la factura electrónica por $20.000.000 imputando $19.200.000 en banco y $800.000 en crédito por retenciones fiscales oficiales sin perder un solo centavo de margen.',
+                score: 100,
+                rubricBreakdown: {
+                    conciliacionBancaria: 100,
+                    controlFiscal: 100,
+                    consultaContable: 100,
+                    gestionCobranzas: 100
+                },
+                feedback: '¡Impecable control administrativo! Defendió la caja de la agencia, articuló con el contador y aseguró que las retenciones impositivas se imputaran con su correspondiente respaldo legal.'
+            },
+            {
+                id: 'opt-c',
+                title: 'Rechazar la transferencia y exigir el pago completo en efectivo',
+                action: 'Llamás furioso al cliente diciendo que la agencia no acepta retenciones de ningún tipo y le devolvés la transferencia bancaria.',
+                outcome: 'Conflicto innecesario con un cliente corporativo de primera línea. Las empresas que son agentes de retención están obligadas por ley provincial a retener, por lo que el rechazo arbitrario rompe la relación comercial sin fundamento técnico.',
+                score: 35,
+                rubricBreakdown: {
+                    conciliacionBancaria: 50,
+                    controlFiscal: 20,
+                    consultaContable: 0,
+                    gestionCobranzas: 30
+                },
+                feedback: 'Mala decisión. Desconoce las obligaciones fiscales de los agentes de retención y genera una fricción comercial perjudicial.'
+            }
+        ],
+        rubricCriteria: [
+            { name: 'Conciliación bancaria exacta', description: 'Control de importes transferidos vs. precios convenidos en boleto.' },
+            { name: 'Control fiscal de retenciones', description: 'Exigencia irrestricta de certificados oficiales de retención emitidos por agentes formales.' },
+            { name: 'Articulación con el estudio contable', description: 'Validación previa de alícuotas y regímenes provinciales con el contador de la agencia.' },
+            { name: 'Gestión profesional de cobranzas', description: 'Manejo firme y empático con clientes corporativos sin resignar márgenes de la empresa.' }
+        ]
+    }
+];
+
+export const ALL_ROLE_SIMULATIONS = [...ROLE_SIMULATIONS, ...ENHANCED_ROLE_SIMULATIONS];
+
+export const getSimulationById = id => ALL_ROLE_SIMULATIONS.find(s => s.id === id);
 export const getSimulationsByRole = role => role === 'todos'
-    ? ROLE_SIMULATIONS
-    : ROLE_SIMULATIONS.filter(s => s.role === role);
+    ? ALL_ROLE_SIMULATIONS
+    : ALL_ROLE_SIMULATIONS.filter(s => s.role === role);
+

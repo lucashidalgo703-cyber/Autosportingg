@@ -66,11 +66,12 @@ export const ROLE_TRACKS = {
     }
 };
 
-// 7 Espacios de navegación de la capacitación práctica
+// 8 Espacios de navegación de la capacitación práctica (incluye Simulador de Negociación con IA)
 export const roleTrainingSections = [
     ['mi-capacitacion', 'Mi capacitación', 'Tu recorrido asignado, objetivos, módulos y próximo paso.'],
     ['aprender', 'Aprender', 'Lecciones, procedimientos oficiales, ejemplos y checklist del rol.'],
     ['practicar', 'Practicar', 'Casos prácticos interactivos y simulaciones de negocio con devolución.'],
+    ['negociacion', 'Entrenamiento de negociación', 'Simulador de conversaciones comerciales con IA y cliente ficticio en tiempo real.'],
     ['tutor', 'Consultar al tutor', 'Dudas de procedimientos, objeciones y expedientes sin riesgo.'],
     ['aprender-del-error', 'Aprender del error', 'Reflexión guiada, plan de mejora individual y privacidad.'],
     ['progreso', 'Mi progreso', 'Módulos completados, prácticas realizadas y competencias demostradas.'],

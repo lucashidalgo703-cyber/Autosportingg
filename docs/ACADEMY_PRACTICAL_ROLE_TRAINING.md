@@ -244,7 +244,59 @@ Checked 665 files.
 
 ---
 
-## 7. Contenidos Pendientes de Validación y Limitaciones Concretas
+## 8. AutoSporting Academy 2.0: Negociación con IA, Persistencia en Backend y Capacitación Avanzada
+
+### A. Persistencia Real en Base de Datos (MongoDB) y Privacidad Estricta
+Se incorporó el modelo Mongoose `AcademyProgress` (`src/models/AcademyProgress.js`) y el servicio de backend `academyProgressService.js` para asegurar que el avance de cada colaborador esté asociado a su identificador de usuario del CRM y sea accesible de manera persistente desde cualquier dispositivo:
+1. **Datos Persistidos**: Cursos financieros y lecciones completadas, módulos de rol completados, intentos de evaluación, simulaciones realizadas, sesiones de negociación con IA (mensajes y reporte de evaluación), y reflexiones de "Aprender del error".
+2. **Aislamiento y Regla Inquebrantable de Privacidad**:
+   - Cada usuario solo accede a su propio progreso (`GET /api/admin/academy/progress`).
+   - Las reflexiones personales de "Aprender del error" permanecen estrictamente privadas por defecto (`sharedWithSupervisor: false`).
+   - El endpoint de supervisión de dirección (`GET /api/admin/academy/supervision/team`) filtra automáticamente las reflexiones, exponiendo única y exclusivamente aquellas que el empleado haya marcado de manera voluntaria y expresa como `sharedWithSupervisor: true`.
+   - El progreso educativo no concede permisos operativos del CRM ni altera salarios o condiciones laborales.
+
+### B. Simulador de Negociación con IA (8 Escenarios y 6 Competencias Ponderadas)
+Se implementó el espacio **Entrenamiento de negociación** (`/admin/academy/negociacion`), con interfaz interactiva libre (chat de texto natural, sin opciones múltiples predeterminadas):
+1. **8 Escenarios de Negociación**:
+   - `desc-01`: *Cliente que pide descuento inmediato* (Guillermo Morales / Toyota Corolla 2022). Nivel principiante.
+   - `toma-02`: *Cliente que exige mayor toma por su permuta* (Patricia Rossi / VW Amarok V6 y Ford EcoSport). Nivel intermedio.
+   - `inde-03`: *Cliente indeciso que pospone la decisión* (Martín Benítez / Chevrolet Cruze 2020). Nivel principiante.
+   - `comp-04`: *Cliente que compara con otra agencia* (Claudio Mansilla / Jeep Renegade 2021). Nivel intermedio.
+   - `fina-05`: *Cliente que quiere financiar sin requisitos* (Lorena Paredes / Renault Kangoo Stepway). Nivel intermedio.
+   - `difi-06`: *Cliente difícil o altamente exigente* (Héctor Cárdenas / Toyota Hilux 2020). Nivel avanzado.
+   - `sena-07`: *Cliente que quiere señar de palabra o con términos no autorizados* (Valeria Soria / Peugeot 208 Feline). Nivel intermedio.
+   - `inte-08`: *Negociación integral compleja: precio, permuta, cuotas y entrega* (Carlos Albarracín / Ford Ranger y VW Gol Trend). Nivel avanzado.
+2. **Separación de Roles IA**:
+   - **Buyer Agent**: Interpreta al comprador manteniendo personalidad patagónica, objeciones y presupuesto oculto sin revelar información secreta del escenario.
+   - **Evaluador Independiente**: Analiza la conversación una vez finalizada y califica las 6 competencias según sus pesos exactos:
+     - Identificación de necesidades y diagnóstico (20%)
+     - Comunicación y claridad profesional (15%)
+     - Argumentación comercial y defensa de valor (20%)
+     - Manejo constructivo de objeciones (20%)
+     - Negociación y respeto a los límites de autorización (15%)
+     - Cierre o definición de próximo paso concreto (10%)
+   - **Reporte Posterior**: Estado del resultado (`acuerdo_cerrado`, `seguimiento_agendado`, `desistido_con_criterio`, `sin_acuerdo_error_grave`), fortalezas, áreas de mejora, momentos clave con citas textuales y frases alternativas recomendadas, y botón de transferencia directa a "Aprender del error".
+
+### C. Tutor Comercial con IA Ampliado y Protección de Confidencialidad
+El servicio `academyAIService.js` provee respuestas pedagógicas basadas en los procedimientos institucionales `PROC-*`:
+- Responde consultas operativas sobre señas, permutas, gestoría registral y facturación.
+- Bloquea activamente cualquier intento de consultar costos de compra, márgenes de ganancia del propietario, saldos de tesorería o claves privadas (`policy_guard`).
+
+### D. Casos Prácticos Avanzados de Gestoría y Facturación
+Se incorporaron dos simulaciones interactivas guiadas adicionales (`ALL_ROLE_SIMULATIONS`):
+- `sim-ges-02`: *Embargo latente en informe de dominio e inhibición a 24 hs de la entrega*. Aplicación de `PROC-GES-02`, bloqueo de entrega física y articulación con Dirección y Legales.
+- `sim-adm-02`: *Retención de IIBB Chubut no acreditada, saldo dispar y consulta al contador*. Exigencia de certificados oficiales de retención y consulta contable obligatoria sin regalar margen de la agencia.
+
+### E. Conexión Segura con IA y Control de Costos
+- Opera por defecto con un **Adaptador Pedagógico Simulado de alta fidelidad** que asegura funcionamiento ininterrumpido sin costo alguno de API externa (`provider: 'simulated'`).
+- Conexión real con OpenAI opcional y controlada mediante `ACADEMY_OPENAI_API_KEY` (o `OPENAI_API_KEY` con `ACADEMY_AI_ENABLED=true`).
+- Límite estricto de seguridad: máximo 15 turnos por sesión y topes de tokens en respuestas (250 tokens para el comprador y 900 tokens para la evaluación).
+
+### F. Verificación Integral de Pruebas
+- Total de pruebas automáticas de Academy ejecutadas: **41 pruebas** (100% pasando).
+- Pruebas del núcleo del CRM y permisos de acceso: **5 suites ejecutadas** (100% pasando).
+- Validación del repositorio: **671 archivos auditados**, 95 permisos verificados, 0 inconsistencias.
+
 
 1. **Contenidos con Validación Profesional Pendiente**:
    - Módulos de Gestoría (`MOD-GES-01`, `MOD-GES-02`, `MOD-GES-03`): Las referencias normativas a aranceles de DNRPA, Formulario 12 y sellados de DGR Chubut reflejan la normativa vigente a noviembre de 2026. Requieren revisión periódica ante circulares de la Dirección Nacional de los Registros de la Propiedad Automotor.

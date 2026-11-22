@@ -10,6 +10,7 @@ import AcademyMiCapacitacion from '../../../../components/crm/academy/AcademyMiC
 import AcademyAprender from '../../../../components/crm/academy/AcademyAprender';
 import AcademyPracticar from '../../../../components/crm/academy/AcademyPracticar';
 import AcademyAprenderDelError from '../../../../components/crm/academy/AcademyAprenderDelError';
+import AcademyNegociacion from '../../../../components/crm/academy/AcademyNegociacion';
 import AcademyGestion from '../../../../components/crm/academy/AcademyGestion';
 
 export default async function AcademySectionPage({ params, searchParams }) {
@@ -23,6 +24,7 @@ export default async function AcademySectionPage({ params, searchParams }) {
     if (section === 'mi-capacitacion') return <AcademyMiCapacitacion />;
     if (section === 'aprender') return <AcademyAprender />;
     if (section === 'practicar') return <AcademyPracticar />;
+    if (section === 'negociacion') return <AcademyNegociacion />;
     if (section === 'tutor') return <AcademyTutor />;
     if (section === 'aprender-del-error') return <AcademyAprenderDelError />;
     if (section === 'progreso') return <AcademyProgress />;

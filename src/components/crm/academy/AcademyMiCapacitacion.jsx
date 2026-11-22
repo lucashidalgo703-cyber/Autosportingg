@@ -194,8 +194,24 @@ export default function AcademyMiCapacitacion() {
                 </div>
             </div>
 
-            {/* Accesos rápidos a práctica y tutor */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-zinc-800/80">
+            {/* Accesos rápidos a práctica, negociación con IA y tutor */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-zinc-800/80">
+                <Link
+                    href="/admin/academy/negociacion"
+                    className="rounded-xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/20 to-zinc-900/60 p-5 hover:border-indigo-500/60 transition-all group shadow-md"
+                >
+                    <div className="text-2xl mb-2">💬</div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] uppercase font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">Nuevo</span>
+                        <h4 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                            Negociación con IA
+                        </h4>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-1">
+                        8 escenarios reales con clientes simulados y evaluación independiente de 6 competencias.
+                    </p>
+                </Link>
+
                 <Link
                     href="/admin/academy/practicar"
                     className="rounded-xl border border-zinc-800 bg-[#0e0e12] p-5 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all group"
@@ -205,7 +221,7 @@ export default function AcademyMiCapacitacion() {
                         Simulaciones y Casos
                     </h4>
                     <p className="text-xs text-zinc-400 mt-1">
-                        6 situaciones de negocio reales con consecuencias inmediatas y rúbricas.
+                        Casos prácticos de negocio con consecuencias inmediatas y rúbricas explícitas.
                     </p>
                 </Link>
 

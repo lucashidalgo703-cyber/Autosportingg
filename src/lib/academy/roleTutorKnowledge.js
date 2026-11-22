@@ -226,3 +226,8 @@ export const searchTutorKnowledge = (query, roleFilter = 'todos') => {
 
     return results;
 };
+
+export const getAvailableProceduresForRole = (role) => {
+    const category = role === 'ventas' ? 'ventas' : (role === 'gestoria' || role === 'gestoria_contabilidad') ? 'gestoria' : (role === 'administracion' || role === 'administrativo') ? 'administracion' : 'todos';
+    return TUTOR_PROCEDURES.filter(p => category === 'todos' || p.category === 'general' || p.category === category);
+};
