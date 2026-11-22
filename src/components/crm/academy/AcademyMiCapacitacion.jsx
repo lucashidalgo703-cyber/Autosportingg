@@ -103,6 +103,40 @@ export default function AcademyMiCapacitacion() {
                 </div>
             </div>
 
+            {/* Banner Desafío Diario (Vendedores) */}
+            <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600/10 border border-red-600/30 text-lg">
+                        ⚡
+                    </span>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-crm-red">
+                                Entrenamiento Diario
+                            </span>
+                            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-zinc-400">
+                                5-10 min
+                            </span>
+                        </div>
+                        <h3 className="text-base font-bold text-white mt-0.5">
+                            Desafío Diario: Conocimiento del Stock y Negociación
+                        </h3>
+                        <p className="text-xs text-zinc-400">
+                            8 preguntas sobre precios publicados, kilometrajes reales, equipamiento y dilemas comerciales.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/admin/academy/desafio-diario"
+                        className="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-5 text-xs font-bold text-white shadow-lg shadow-red-600/20 hover:bg-red-500 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                        Abrir Desafío Diario →
+                    </Link>
+                </div>
+            </div>
+
             {/* Tarjeta de Próximo Paso Recomendado (CTA Principal) */}
             <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/20 via-[#0e0e12] to-zinc-950 p-6 shadow-xl relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">

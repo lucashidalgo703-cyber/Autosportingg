@@ -69,6 +69,7 @@ export const ROLE_TRACKS = {
 // 8 Espacios de navegación de la capacitación práctica (incluye Simulador de Negociación con IA)
 export const roleTrainingSections = [
     ['mi-capacitacion', 'Mi capacitación', 'Tu recorrido asignado, objetivos, módulos y próximo paso.'],
+    ['desafio-diario', 'Desafío diario', 'Evaluación diaria rápida de stock, precios y negociación.'],
     ['aprender', 'Aprender', 'Lecciones, procedimientos oficiales, ejemplos y checklist del rol.'],
     ['practicar', 'Practicar', 'Casos prácticos interactivos y simulaciones de negocio con devolución.'],
     ['negociacion', 'Entrenamiento de negociación', 'Simulador de conversaciones comerciales con IA y cliente ficticio en tiempo real.'],

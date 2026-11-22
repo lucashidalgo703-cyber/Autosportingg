@@ -12,6 +12,7 @@ import AcademyPracticar from '../../../../components/crm/academy/AcademyPractica
 import AcademyAprenderDelError from '../../../../components/crm/academy/AcademyAprenderDelError';
 import AcademyNegociacion from '../../../../components/crm/academy/AcademyNegociacion';
 import AcademyGestion from '../../../../components/crm/academy/AcademyGestion';
+import AcademyDesafioDiario from '../../../../components/crm/academy/AcademyDesafioDiario';
 
 export default async function AcademySectionPage({ params, searchParams }) {
     const { section } = await params;
@@ -22,6 +23,7 @@ export default async function AcademySectionPage({ params, searchParams }) {
 
     // Secciones de Capacitación Práctica por Rol
     if (section === 'mi-capacitacion') return <AcademyMiCapacitacion />;
+    if (section === 'desafio-diario') return <AcademyDesafioDiario />;
     if (section === 'aprender') return <AcademyAprender />;
     if (section === 'practicar') return <AcademyPracticar />;
     if (section === 'negociacion') return <AcademyNegociacion />;

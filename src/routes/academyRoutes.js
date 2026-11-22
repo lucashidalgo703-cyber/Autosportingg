@@ -21,6 +21,26 @@ import {
     getBudgetStatus,
     setAuthorizedBudget
 } from '../services/academyBudgetService.js';
+import {
+    getOrCreateDailyChallenge,
+    getSellerDailyStatus,
+    submitChallengeAttempt
+} from '../services/academyDailyChallengeService.js';
+import {
+    getDailyControlOverview,
+    getSellerIndividualCard,
+    getAttemptQuestionDetail,
+    invalidateAttemptQuestion
+} from '../services/academySupervisionService.js';
+import {
+    getNotifications,
+    markNotificationRead,
+    markAllNotificationsRead
+} from '../services/academyNotificationService.js';
+import {
+    validateIntakeCarForEvaluation,
+    generateNewIntakeMiniChallenge
+} from '../services/academyNewIntakeChallengeService.js';
 
 const endpoint = callback => async (req, res) => {
     try {
@@ -63,7 +83,59 @@ export function createAcademyRouter({ authenticate }) {
     router.post('/simulation/record', endpoint(req => recordSimulationAttempt(req.user, req.body)));
     router.post('/reflection', endpoint(req => saveErrorReflection(req.user, req.body)));
 
-    // Simulador de negociación con IA (validación y sanitización de entrada)
+    // =========================================================================
+    // DESAFÍOS DIARIOS (VENDEDORES Y REPASO PRÁCTICO)
+    // =========================================================================
+    router.get('/daily-challenge/today', endpoint(async req => {
+        const challenge = await getOrCreateDailyChallenge(req.query.date);
+        const status = await getSellerDailyStatus(req.user, req.query.date);
+        return { challenge, status };
+    }));
+
+    router.get('/daily-challenge/status', endpoint(req => getSellerDailyStatus(req.user, req.query.date)));
+
+    router.post('/daily-challenge/submit', endpoint(req => {
+        const { challengeId, answers, durationSeconds, attemptType } = req.body;
+        return submitChallengeAttempt(req.user, {
+            challengeId,
+            answers: Array.isArray(answers) ? answers : [],
+            durationSeconds: Number(durationSeconds) || 0,
+            attemptType: attemptType || 'official_daily'
+        });
+    }));
+
+    // =========================================================================
+    // CONTROL DE CAPACITACIÓN (PROPIETARIO / ADMINISTRADOR)
+    // =========================================================================
+    router.get('/control/overview', requireSupervisor, endpoint(req => getDailyControlOverview(req.query.date)));
+    router.get('/control/seller/:id', requireSupervisor, endpoint(req => getSellerIndividualCard(req.params.id)));
+    router.get('/control/attempt/:id', requireSupervisor, endpoint(req => getAttemptQuestionDetail(req.params.id)));
+    router.post('/control/attempt/:id/invalidate', requireSupervisor, endpoint(req => {
+        return invalidateAttemptQuestion(req.params.id, req.body.questionId, req.user, req.body.reason);
+    }));
+
+    // =========================================================================
+    // NOTIFICACIONES INTERNAS DE ACADEMY (PROPIETARIO)
+    // =========================================================================
+    router.get('/notifications', requireSupervisor, endpoint(req => getNotifications(req.user, { limit: Number(req.query.limit) || 20 })));
+    router.post('/notifications/:id/read', requireSupervisor, endpoint(req => markNotificationRead(req.params.id)));
+    router.post('/notifications/read-all', requireSupervisor, endpoint(req => markAllNotificationsRead(req.user)));
+
+    // =========================================================================
+    // EVALUACIÓN DE VEHÍCULOS RECIÉN INGRESADOS (NUEVOS INGRESOS)
+    // =========================================================================
+    router.get('/intake/validate/:carId', requireSupervisor, endpoint(req => validateIntakeCarForEvaluation(req.params.carId)));
+    router.post('/intake/generate', requireSupervisor, endpoint(async req => {
+        const challenge = await generateNewIntakeMiniChallenge(req.body.carId, {
+            title: req.body.title,
+            assignedUserIds: Array.isArray(req.body.assignedUserIds) ? req.body.assignedUserIds : []
+        });
+        return { success: true, challenge };
+    }));
+
+    // =========================================================================
+    // SIMULADOR DE NEGOCIACIÓN CON IA
+    // =========================================================================
     router.post('/negotiation/chat', endpoint(async req => {
         const { scenarioId, conversationHistory, sellerMessage, level } = req.body;
         if (!scenarioId || typeof scenarioId !== 'string') {
@@ -96,7 +168,6 @@ export function createAcademyRouter({ authenticate }) {
             userId: req.user?.id || req.user?.userId
         });
         
-        // Persistir la sesión evaluada en el progreso del usuario
         await recordNegotiationSession(req.user, {
             scenarioId,
             level: ['principiante', 'intermedio', 'avanzado'].includes(level) ? level : 'intermedio',

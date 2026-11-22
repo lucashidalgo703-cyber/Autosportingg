@@ -7,6 +7,7 @@ import { ROLE_TRACKS } from '../../../lib/academy/catalog';
 import { ROLE_MODULES, MODULE_STATUS } from '../../../lib/academy/roleModules';
 import { ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
 import { COMPETENCY_DEFINITIONS } from '../../../lib/academy/negotiationScenarios';
+import AcademyControlCapacitacion from './AcademyControlCapacitacion';
 
 // Colaboradores ficticios simulados para demostración en Comodoro Rivadavia
 const INITIAL_TEAM_MEMBERS = [
@@ -58,12 +59,23 @@ export default function AcademyGestion() {
     const [selectedMember, setSelectedMember] = useState(INITIAL_TEAM_MEMBERS[0]);
     const [recommendationSent, setRecommendationSent] = useState('');
     const [selectedModuleToRecommend, setSelectedModuleToRecommend] = useState(ROLE_MODULES[1].id);
+    const [activeTab, setActiveTab] = useState('control');
     const [teamData, setTeamData] = useState(null);
     const [isLoadingTeam, setIsLoadingTeam] = useState(false);
     const [budgetStatus, setBudgetStatus] = useState(null);
     const [newBudgetInput, setNewBudgetInput] = useState('');
     const [budgetMsg, setBudgetMsg] = useState('');
     const [isUpdatingBudget, setIsUpdatingBudget] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get('tab');
+            if (['control', 'recorridos', 'presupuesto'].includes(tab)) {
+                setActiveTab(tab);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -231,6 +243,49 @@ export default function AcademyGestion() {
                 </div>
             </div>
 
+            {/* Selector de pestañas de supervisión */}
+            <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-2">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('control')}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        activeTab === 'control'
+                            ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
+                            : 'border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                    }`}
+                >
+                    📊 Control de Capacitación (Desafíos y Stock)
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('recorridos')}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        activeTab === 'recorridos'
+                            ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
+                            : 'border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                    }`}
+                >
+                    👥 Asignación de Recorridos y Roles
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('presupuesto')}
+                    className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        activeTab === 'presupuesto'
+                            ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
+                            : 'border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                    }`}
+                >
+                    💰 Presupuesto OpenAI y Validaciones
+                </button>
+            </div>
+
+            {activeTab === 'control' && (
+                <AcademyControlCapacitacion />
+            )}
+
+            {activeTab === 'presupuesto' && (
+            <>
             {/* Control Presupuestario de OpenAI (Sección 2) */}
             <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-6 shadow-xl space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
@@ -320,7 +375,11 @@ export default function AcademyGestion() {
                     </div>
                 )}
             </div>
+            </>
+            )}
 
+            {activeTab === 'recorridos' && (
+            <>
             {/* Tabla de asignación de recorridos y supervisión */}
             <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-6 shadow-xl space-y-5">
                 <div className="flex items-center justify-between">
@@ -512,7 +571,11 @@ export default function AcademyGestion() {
                     </div>
                 </div>
             )}
+            </>
+            )}
 
+            {activeTab === 'presupuesto' && (
+            <>
             {/* Control de Versiones y Validación Profesional de Contenidos */}
             <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
@@ -565,6 +628,8 @@ export default function AcademyGestion() {
                     ))}
                 </div>
             </div>
+            </>
+            )}
         </div>
     );
 }
