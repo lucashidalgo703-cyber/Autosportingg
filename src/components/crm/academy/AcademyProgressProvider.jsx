@@ -43,16 +43,40 @@ function LearnerProgress({ learnerId, children }) {
             .then(backendProgress => {
                 if (backendProgress) {
                     update(prev => {
+                        // 1. Unión de lecciones y módulos completados entre dispositivos
+                        const backendLessonIds = new Set((backendProgress.completedLessons || []).map(l => l.lessonId));
+                        const backendModuleIds = new Set((backendProgress.completedRoleModules || []).map(m => m.moduleId));
+
                         const mergedLessons = Array.from(new Set([
                             ...(prev.completed || []),
-                            ...(backendProgress.completedLessons || []).map(l => l.lessonId)
+                            ...backendLessonIds
                         ]));
                         const mergedRoleModules = Array.from(new Set([
                             ...(prev.roleModulesCompleted || []),
-                            ...(backendProgress.completedRoleModules || []).map(m => m.moduleId)
+                            ...backendModuleIds
                         ]));
-                        // Sincronizar reflexiones de error desde backend (persistencia multidispositivo)
-                        const existingReflectionIds = new Set((prev.errorReflections || []).map(r => String(r.id || r._id)));
+
+                        // 2. Reconciliación de simulaciones priorizando el mejor resultado
+                        const simMap = new Map();
+                        for (const s of (prev.roleSimulations || [])) {
+                            if (s.simulationId) simMap.set(s.simulationId, s);
+                        }
+                        for (const bs of (backendProgress.simulationAttempts || [])) {
+                            if (!bs.simulationId) continue;
+                            const existing = simMap.get(bs.simulationId);
+                            if (!existing || (typeof bs.score === 'number' && bs.score > (existing.score || 0))) {
+                                simMap.set(bs.simulationId, {
+                                    simulationId: bs.simulationId,
+                                    score: bs.score,
+                                    selectedOption: bs.decisions?.[0] || bs.selectedOption,
+                                    at: bs.completedAt ? new Date(bs.completedAt).toISOString() : new Date().toISOString()
+                                });
+                            }
+                        }
+                        const mergedSimulations = Array.from(simMap.values());
+
+                        // 3. Sincronización de reflexiones privadas (conservar versiones con mayor contenido)
+                        const localReflections = prev.errorReflections || [];
                         const backendReflections = (backendProgress.errorReflections || []).map(r => ({
                             id: String(r._id || r.id),
                             titulo: r.situation?.slice(0, 80) || 'Reflexión guardada',
@@ -67,17 +91,48 @@ function LearnerProgress({ learnerId, children }) {
                             fechaCompartido: r.sharedAt,
                             status: 'en_progreso'
                         }));
-                        const mergedReflections = [
-                            ...(prev.errorReflections || []),
-                            ...backendReflections.filter(r => !existingReflectionIds.has(r.id))
-                        ];
+
+                        const refMap = new Map();
+                        for (const r of localReflections) {
+                            refMap.set(String(r.id || r._id), r);
+                        }
+                        for (const br of backendReflections) {
+                            const existing = refMap.get(br.id);
+                            if (!existing) {
+                                refMap.set(br.id, br);
+                            } else {
+                                // Preservar la versión de mayor contenido en ediciones concurrentes
+                                const localLen = `${existing.quePaso || ''} ${existing.informacion || ''} ${existing.otraManera || ''}`.length;
+                                const backendLen = `${br.quePaso || ''} ${br.informacion || ''} ${br.otraManera || ''}`.length;
+                                if (backendLen > localLen) {
+                                    refMap.set(br.id, br);
+                                }
+                            }
+                        }
+                        const mergedReflections = Array.from(refMap.values());
+
+                        // 4. Si hay avances locales no registrados en el servidor, enviarlos en segundo plano
+                        const unsyncedLessons = (prev.completed || []).filter(id => !backendLessonIds.has(id));
+                        const unsyncedModules = (prev.roleModulesCompleted || []).filter(id => !backendModuleIds.has(id));
+                        if (unsyncedLessons.length > 0 || unsyncedModules.length > 0) {
+                            fetch('/api/admin/academy/progress/sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                body: JSON.stringify({
+                                    completedLessons: unsyncedLessons,
+                                    completedRoleModules: unsyncedModules
+                                })
+                            }).catch(() => {});
+                        }
 
                         return {
                             ...prev,
                             completed: mergedLessons,
                             roleModulesCompleted: mergedRoleModules,
+                            roleSimulations: mergedSimulations,
                             errorReflections: mergedReflections,
                             sharedErrorReflections: mergedReflections.filter(r => r.compartidoConSupervisor),
+                            // Autoridad del servidor sobre asignaciones del supervisor
                             assignedTrack: backendProgress.assignedTrack || prev.assignedTrack,
                             recommendedActivities: backendProgress.recommendedActivities?.length
                                 ? backendProgress.recommendedActivities

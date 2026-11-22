@@ -338,6 +338,74 @@ Se incorporaron dos simulaciones interactivas guiadas adicionales (`ALL_ROLE_SIM
 **GO PARA REVISIÓN VISUAL DEL PROPIETARIO**  
 La plataforma cumple con la integridad pedagógica, la seguridad técnica, el aislamiento de roles y la fidelidad visual de AutoSporting. No debe desplegarse en producción hasta que el propietario la revise y apruebe localmente.
 
+---
+
+## 10. Correcciones Finales de Seguridad, Presupuesto Persistente, Cuotas y Evaluación Contextual
+
+### 1. Presupuesto Persistente de OpenAI (`AcademyBudget` y `academyBudgetService.js`)
+- **Independencia Total de Codex**: El sistema de presupuestos opera con su propio modelo y colección `AcademyBudget` en MongoDB, sin compartir saldo ni colisionar con el cupo de USD 1 asignado al piloto financiero de Codex.
+- **Identificador Estable**: Mantiene el identificador `academy-primary`.
+- **Saldo Autorizado por Defecto**: Estricta regla de seguridad: el presupuesto autorizado inicial es de **$0.00 USD** (nunca un importe positivo por defecto). Requiere configuración explícita por variable `ACADEMY_AI_BUDGET_USD` o mediante el panel de dirección.
+- **Ciclo Transaccional de Reserva y Liquidación**:
+  1. *Reserva Atómica Previa*: Antes de invocar a OpenAI (`buyer`, `evaluator` o `tutor`), el servicio reserva atómicamente el costo máximo estimado (`reservedUSD`). Si `availableUSD < estimatedCost`, deniega la llamada externa y deriva automáticamente al motor pedagógico simulado.
+  2. *Liquidación Exitosa (`success`)*: Libera la reserva y suma el consumo confirmado en `confirmedSpentUSD`, calculando el importe exacto en base a los tokens de entrada y salida consumidos.
+  3. *Manejo de Timeouts y Errores Inciertos (`uncertain`)*: Si la petición a OpenAI aborta por timeout (12 segundos) o respuesta interrumpida, la reserva se libera y el costo estimado se traslada a `uncertainSpentUSD`, preservando la exactitud del saldo disponible sin subestimar el consumo real del proveedor.
+  4. *Fallback Seguro*: Si el saldo se agota o la IA está deshabilitada, el sistema continúa operando al 100% mediante el adaptador formativo local.
+
+### 2. Control de Cuotas de Consumo por Empleado (`USER_QUOTA_LIMITS`)
+Para prevenir abusos o consumo desmedido de tokens:
+- **Máximo de Sesiones por Día**: 10 prácticas de negociación diarias por usuario.
+- **Máximo de Consultas al Tutor por Día**: 20 consultas diarias por usuario.
+- **Concurrencia por Usuario**: Máximo 1 solicitud en procesamiento simultáneo por usuario (candado anti-doble clic o envíos concurrentes).
+- **Límites de Entrada y Salida**: Textos de usuario recortados a 500 caracteres como máximo; tokens de respuesta acotados (250 tokens para el comprador simulado, 300 para el tutor, 900 para la evaluación).
+- **Mensaje Claro y Continuidad**: Al alcanzar el límite diario, se le presenta al empleado un mensaje explicativo cordial sin interrumpir su práctica, derivando la sesión al motor pedagógico simulado.
+
+### 3. Sincronización Segura Multidispositivo y Aislamiento Multiusuario
+- **Unión de Lecciones y Módulos**: Al alternar entre dispositivos (computadora de la agencia y teléfono móvil), el estado se concilia realizando la unión matemática (Set) de las lecciones financieras y módulos de rol completados.
+- **Mejor Calificación en Simulaciones**: En caso de conflicto de puntajes en una misma simulación, se preserva automáticamente la calificación más alta obtenida por el empleado.
+- **Preservación de Ediciones Concurrentes en Aprender del Error**: Si dos dispositivos modificaron una misma reflexión privada, el sistema concilia ambas conservando la versión con mayor contenido y desarrollo, sin descartar texto ni observaciones del empleado.
+- **Autoridad Absoluta del Servidor sobre Asignaciones del Supervisor**: Las directivas del Propietario (`assignedTrack` y `recommendedActivities`) residen en el backend y tienen autoridad inmutable; las sincronizaciones desde dispositivos locales no pueden degradar ni sobreescribir la asignación formativa dictada por la dirección.
+- **Aislamiento Estricto al Cambiar de Usuario en Navegador Compartido**: Al cerrar sesión o ingresar con otra cuenta en la misma terminal, el contenedor `LearnerProgress` está indexado por `learnerId`, forzando el desmontaje completo del estado en memoria y utilizando claves de `localStorage` estrictamente aisladas (`autosporting.academy.v1:<learnerId>`). Ningún empleado hereda el avance, notas o reflexiones del usuario previo.
+
+### 4. Evaluador Contextual de Negociaciones y Calificaciones Ajustadas
+El evaluador independiente analiza el contexto integral de la interacción comercial:
+- **Rechazo Justificado con Criterio Comercial (`desistido_con_criterio`)**: Si el vendedor diagnosticó las necesidades del cliente, explicó por qué no puede acceder a una rebaja desmedida (defendiendo el margen de la agencia y el historial de la unidad) y ofreció alternativas viables dentro de pautas, la evaluación reconoce este criterio comercial con una **calificación alta (80 a 95 puntos)**. Desistir de un mal negocio no se penaliza como fracaso.
+- **Rechazo Injustificado o Prematuro (`desistido_injustificado`)**: Si el vendedor clausuró la negociación de plano sin diagnosticar las inquietudes del cliente, sin fundamentar el valor de la unidad y sin proponer opciones, recibe una **calificación menor (<= 65 puntos)**.
+- **Faltas Graves Institucionales (`sin_acuerdo_error_grave`)**: Si el vendedor promete entrega física sin transferencia registral ingresada, solicita cobro o seña a una cuenta/alias personal de Mercado Pago, o garantiza créditos bancarios a sola firma sin análisis de scoring, la práctica queda **terminantemente desaprobada (<= 40 puntos)**, con independencia de la cortesía empleada.
+- **Transparencia y Citas Textuales**: El informe formativo desglosa las 6 competencias ponderadas, cita fragmentos textuales de la conversación que fundamentan cada nota y exhibe el aviso institucional expreso de que el modo simulado constituye una orientación pedagógica heurística.
+
+### 5. Interfaz de Gestión Presupuestaria para el Propietario
+- En `/admin/academy/gestion`, la dirección cuenta con un panel visual que detalla en tiempo real:
+  - Saldo Autorizado USD.
+  - Consumo Confirmado USD.
+  - Consumo Incierto USD (por peticiones abortadas/timeouts).
+  - Saldo Disponible USD.
+  - Tokens totales consumidos.
+  - Formulario ágil para ajustar el presupuesto autorizado mediante `POST /api/admin/academy/budget/configure`.
+
+### 6. Matriz de Resultados de Pruebas Automatizadas
+
+| Suite de Pruebas | Archivo | Pruebas | Estado |
+|---|---|:---:|:---:|
+| **Hardening Final Academy 2.0** | `tests/academy2FinalHarden.test.js` | 12 | **100% PASS** |
+| **Integración y Gobernanza** | `tests/academy2.integration.test.js` | 9 | **100% PASS** |
+| **Validación Final de Seguridad** | `tests/academyValidationFinal.test.js` | 7 | **100% PASS** |
+| **Módulos de Rol y Simulador** | `tests/academyRoleTraining.test.js` | 7 | **100% PASS** |
+| **Backend y Privacidad** | `tests/academyBackend.test.js` | 3 | **100% PASS** |
+| **Currículum y Evaluaciones** | `tests/academyAssessments.test.js` | 2 | **100% PASS** |
+| **Simuladores Financieros** | `tests/academySimulators.test.js` | 7 | **100% PASS** |
+| **Persistencia Local y Web Locks** | `tests/academyProgress.test.js` | 4 | **100% PASS** |
+| **Decisiones y Práctica** | `tests/academyDecisions.test.js` | 3 | **100% PASS** |
+| **Tutor Local** | `tests/academyTutor.test.js` | 1 | **100% PASS** |
+| **Estructura General** | `tests/academy.test.js` | 5 | **100% PASS** |
+| **Total Pruebas Academy** | | **60** | **100% PASS** |
+| **Permisos de Roles CRM** | `tests/managedRolePermissions.test.js` | 1 | **100% PASS** |
+| **Aislamiento de Caché Vendedor** | `tests/sellerAccessCache.test.js` | 1 | **100% PASS** |
+| **Normalización de Patentes** | `tests/vehiclePlate.test.js` | 1 | **100% PASS** |
+| **Permisos de Capital de Agencia** | `tests/capitalHistoryPermissions.test.js` | 1 | **100% PASS** |
+| **Permisos de Stock y Negociación** | `tests/stockNegotiationPermissions.test.js` | 1 | **100% PASS** |
+| **Auditoría de Código y Permisos** | `scripts/validate-codebase.js` | 673 archivos | **100% PASS** |
+
 
 
 1. **Contenidos con Validación Profesional Pendiente**:

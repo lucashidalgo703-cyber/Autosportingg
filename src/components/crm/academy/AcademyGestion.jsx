@@ -60,6 +60,10 @@ export default function AcademyGestion() {
     const [selectedModuleToRecommend, setSelectedModuleToRecommend] = useState(ROLE_MODULES[1].id);
     const [teamData, setTeamData] = useState(null);
     const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+    const [budgetStatus, setBudgetStatus] = useState(null);
+    const [newBudgetInput, setNewBudgetInput] = useState('');
+    const [budgetMsg, setBudgetMsg] = useState('');
+    const [isUpdatingBudget, setIsUpdatingBudget] = useState(false);
 
     useEffect(() => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -92,6 +96,19 @@ export default function AcademyGestion() {
         })
         .catch(err => console.warn('[Supervision API]', err.message))
         .finally(() => setIsLoadingTeam(false));
+
+        // Consultar presupuesto persistente de IA
+        fetch('/api/admin/academy/budget/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.ok ? res.json() : null)
+        .then(b => {
+            if (b) {
+                setBudgetStatus(b);
+                setNewBudgetInput(String(b.authorizedBudgetUSD || 0));
+            }
+        })
+        .catch(() => {});
     }, [isSupervisor]);
 
     // Si no es supervisor, mostrar pantalla de acceso restringido
@@ -143,6 +160,34 @@ export default function AcademyGestion() {
         setTimeout(() => setRecommendationSent(''), 4000);
     };
 
+    const handleUpdateBudget = async (e) => {
+        e.preventDefault();
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (!token) return;
+        setIsUpdatingBudget(true);
+        try {
+            const res = await fetch('/api/admin/academy/budget/configure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ authorizedBudgetUSD: parseFloat(newBudgetInput || '0') })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                setBudgetStatus(prev => ({
+                    ...prev,
+                    authorizedBudgetUSD: updated.authorizedBudgetUSD,
+                    availableUSD: Math.max(0, updated.authorizedBudgetUSD - (prev?.confirmedSpentUSD || 0))
+                }));
+                setBudgetMsg('Presupuesto de Academy actualizado con éxito.');
+                setTimeout(() => setBudgetMsg(''), 4000);
+            }
+        } catch {
+            setBudgetMsg('Error al actualizar presupuesto.');
+        } finally {
+            setIsUpdatingBudget(false);
+        }
+    };
+
     const sharedReflections = progress?.sharedErrorReflections || [];
 
     return (
@@ -184,6 +229,96 @@ export default function AcademyGestion() {
                         <strong>Regla de Aislamiento Operativo:</strong> Asignar o completar capacitaciones NO otorga permisos operativos en el CRM ni abre módulos restringidos (como Finanzas o Stock Completo).
                     </span>
                 </div>
+            </div>
+
+            {/* Control Presupuestario de OpenAI (Sección 2) */}
+            <div className="rounded-2xl border border-zinc-800 bg-[#0e0e12] p-6 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                                Control de Costos · OpenAI Academy
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-300">
+                                Independiente de Codex
+                            </span>
+                        </div>
+                        <h3 className="text-base font-bold text-white mt-1">
+                            Presupuesto Autorizado y Consumo Persistente
+                        </h3>
+                        <p className="text-xs text-zinc-400 max-w-xl">
+                            Supervisá el saldo dedicado a los agentes de IA (Comprador, Evaluador y Tutor). El presupuesto por defecto es 0 USD y requiere autorización explícita para evitar gastos imprevistos.
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleUpdateBudget} className="flex items-center gap-2">
+                        <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 font-mono">$</span>
+                            <input
+                                type="number"
+                                step="0.50"
+                                min="0"
+                                max="100"
+                                value={newBudgetInput}
+                                onChange={e => setNewBudgetInput(e.target.value)}
+                                className="w-24 pl-6 pr-2 py-1.5 rounded-lg border border-zinc-700 bg-zinc-900 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <span className="text-xs text-zinc-400">USD</span>
+                        <button
+                            type="submit"
+                            disabled={isUpdatingBudget}
+                            className="px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-600/20 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/30 transition-colors disabled:opacity-50"
+                        >
+                            {isUpdatingBudget ? 'Guardando...' : 'Asignar Saldo'}
+                        </button>
+                    </form>
+                </div>
+
+                {budgetMsg && (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-300">
+                        {budgetMsg}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 block">Autorizado</span>
+                        <span className="text-base font-bold font-mono text-white">
+                            ${(budgetStatus?.authorizedBudgetUSD ?? 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USD</span>
+                        </span>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 block">Consumido Confirmado</span>
+                        <span className="text-base font-bold font-mono text-amber-400">
+                            ${(budgetStatus?.confirmedSpentUSD ?? 0).toFixed(4)} <span className="text-[10px] text-zinc-400">USD</span>
+                        </span>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 block">Saldo Disponible</span>
+                        <span className={`text-base font-bold font-mono ${
+                            (budgetStatus?.availableUSD ?? 0) > 0 ? 'text-emerald-400' : 'text-zinc-500'
+                        }`}>
+                            ${(budgetStatus?.availableUSD ?? 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USD</span>
+                        </span>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 block">Tokens Utilizados</span>
+                        <span className="text-base font-bold font-mono text-zinc-300">
+                            {(budgetStatus?.totalTokensUsed ?? 0).toLocaleString('es-AR')}
+                        </span>
+                    </div>
+                </div>
+
+                {(budgetStatus?.uncertainSpentUSD ?? 0) > 0 && (
+                    <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-800/30 text-xs text-amber-300 flex items-center justify-between">
+                        <span>Gasto incierto por llamadas interrumpidas o timeouts: ${(budgetStatus.uncertainSpentUSD).toFixed(4)} USD</span>
+                    </div>
+                )}
             </div>
 
             {/* Tabla de asignación de recorridos y supervisión */}

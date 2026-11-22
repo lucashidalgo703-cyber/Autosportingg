@@ -365,12 +365,15 @@ export default function AcademyNegociacion() {
                                                 : evaluationReport.outcomeStatus === 'seguimiento_agendado'
                                                 ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                                                 : evaluationReport.outcomeStatus === 'desistido_con_criterio'
+                                                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                                                : evaluationReport.outcomeStatus === 'desistido_injustificado'
                                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                                 : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                         }`}>
                                             {evaluationReport.outcomeStatus === 'acuerdo_cerrado' && 'Acuerdo Cerrado'}
                                             {evaluationReport.outcomeStatus === 'seguimiento_agendado' && 'Seguimiento Agendado'}
                                             {evaluationReport.outcomeStatus === 'desistido_con_criterio' && 'Venta Desistida con Criterio'}
+                                            {evaluationReport.outcomeStatus === 'desistido_injustificado' && 'Rechazo Injustificado / Prematuro'}
                                             {evaluationReport.outcomeStatus === 'sin_acuerdo_error_grave' && 'Sin Acuerdo / Error de Procedimiento'}
                                         </span>
                                     </div>
@@ -386,6 +389,27 @@ export default function AcademyNegociacion() {
                                     <div className="text-xs text-zinc-400">Puntaje ponderado</div>
                                 </div>
                             </div>
+
+                            {/* Aviso Heurístico Pedagógico */}
+                            {evaluationReport.heuristicDisclaimer && (
+                                <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg p-3 text-xs text-zinc-300 flex items-start gap-2.5">
+                                    <span className="text-indigo-400 text-sm leading-none mt-0.5">ℹ</span>
+                                    <span className="leading-relaxed">{evaluationReport.heuristicDisclaimer}</span>
+                                </div>
+                            )}
+
+                            {/* Contexto de la Evaluación */}
+                            {evaluationReport.evaluationContext && (
+                                <div className="bg-zinc-800/30 border border-zinc-800 rounded-lg p-4 space-y-2 text-xs">
+                                    <div className="font-semibold text-zinc-200">Contexto de la Operación y Diagnóstico Comercial:</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-zinc-400">
+                                        <div><span className="text-zinc-300 font-medium">Diagnóstico Vendedor:</span> {evaluationReport.evaluationContext.sellerDiagnosis}</div>
+                                        <div><span className="text-zinc-300 font-medium">Alternativas Ofrecidas:</span> {evaluationReport.evaluationContext.alternativesOffered}</div>
+                                        <div><span className="text-zinc-300 font-medium">Fundamentación de Negativa:</span> {evaluationReport.evaluationContext.refusalExplanation}</div>
+                                        <div><span className="text-zinc-300 font-medium">Condiciones Autorizadas:</span> {evaluationReport.evaluationContext.authorizedConditions}</div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Desglose de las 6 Competencias Ponderadas */}
                             <div>

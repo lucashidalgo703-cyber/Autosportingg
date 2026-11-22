@@ -17,6 +17,10 @@ import {
     evaluateNegotiation,
     generateTutorReply
 } from '../services/academyAIService.js';
+import {
+    getBudgetStatus,
+    setAuthorizedBudget
+} from '../services/academyBudgetService.js';
 
 const endpoint = callback => async (req, res) => {
     try {
@@ -86,7 +90,11 @@ export function createAcademyRouter({ authenticate }) {
             throw err;
         }
         const safeHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-30) : [];
-        const evaluation = await evaluateNegotiation({ scenarioId, conversationHistory: safeHistory });
+        const evaluation = await evaluateNegotiation({
+            scenarioId,
+            conversationHistory: safeHistory,
+            userId: req.user?.id || req.user?.userId
+        });
         
         // Persistir la sesión evaluada en el progreso del usuario
         await recordNegotiationSession(req.user, {
@@ -117,6 +125,10 @@ export function createAcademyRouter({ authenticate }) {
     router.get('/supervision/team', requireSupervisor, endpoint(req => getTeamProgressForSupervisor(req.user)));
     router.post('/supervision/assign', requireSupervisor, endpoint(req => assignTrack(req.user, req.body.userId, req.body.trackId)));
     router.post('/supervision/recommend', requireSupervisor, endpoint(req => recommendActivity(req.user, req.body.userId, req.body.activity)));
+
+    // Presupuesto persistente de OpenAI (Solo Supervisores)
+    router.get('/budget/status', requireSupervisor, endpoint(req => getBudgetStatus(req.user?.id || req.user?.userId)));
+    router.post('/budget/configure', requireSupervisor, endpoint(req => setAuthorizedBudget(req.body.authorizedBudgetUSD)));
 
     return router;
 }

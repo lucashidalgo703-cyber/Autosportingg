@@ -3,8 +3,60 @@
  * Gestiona el progreso en MongoDB con aislamiento estricto de privacidad para las reflexiones de error.
  */
 
+import crypto from 'crypto';
+import mongoose from 'mongoose';
 import AcademyProgress from '../models/AcademyProgress.js';
 import AdminUser from '../models/AdminUser.js';
+
+// Almacén en memoria para tests aislados o entornos sin conexión a MongoDB
+const inMemoryProgressStore = new Map();
+
+function createInMemoryProgressDoc(userId, user = null) {
+    const role = user?.role || 'vendedor';
+    const defaultTrack = role === 'gestor' ? 'track-gestoria' : (role === 'admin' ? 'track-administracion' : 'track-vendedor');
+
+    const errorReflections = [];
+    errorReflections.id = function(refId) {
+        return this.find(r => String(r._id || r.id) === String(refId));
+    };
+
+    const doc = {
+        userId,
+        userName: user?.name || user?.username || 'Usuario',
+        userEmail: user?.email || '',
+        userRole: role,
+        assignedTrack: defaultTrack,
+        assignedModules: [],
+        recommendedActivities: [],
+        completedLessons: [],
+        completedRoleModules: [],
+        assessmentAttempts: [],
+        simulationAttempts: [],
+        negotiationSessions: [],
+        errorReflections,
+        lastActiveAt: new Date(),
+        async save() {
+            this.lastActiveAt = new Date();
+            inMemoryProgressStore.set(userId, this);
+            return this;
+        }
+    };
+    inMemoryProgressStore.set(userId, doc);
+    return doc;
+}
+
+function getInMemoryProgressDoc(userId, user = null) {
+    let doc = inMemoryProgressStore.get(userId);
+    if (!doc) {
+        doc = createInMemoryProgressDoc(userId, user);
+    }
+    if (doc.errorReflections && !doc.errorReflections.id) {
+        doc.errorReflections.id = function(refId) {
+            return this.find(r => String(r._id || r.id) === String(refId));
+        };
+    }
+    return doc;
+}
 
 function resolveUserId(user) {
     if (!user) throw new Error('Usuario no autenticado.');
@@ -16,6 +68,11 @@ function resolveUserId(user) {
  */
 export async function getUserProgress(user) {
     const userId = resolveUserId(user);
+
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+        return getInMemoryProgressDoc(userId, user);
+    }
+
     let progress = await AcademyProgress.findOne({ userId });
 
     if (!progress) {
@@ -71,26 +128,83 @@ export async function syncLocalProgress(user, localData = {}) {
     // Sincronizar evaluaciones
     if (Array.isArray(localData.assessmentAttempts)) {
         for (const att of localData.assessmentAttempts) {
-            if (att.assessmentId && !progress.assessmentAttempts.some(a => a.assessmentId === att.assessmentId && Math.abs(new Date(a.completedAt) - new Date(att.completedAt)) < 5000)) {
+            const existing = progress.assessmentAttempts.find(a => a.assessmentId === att.assessmentId);
+            if (!existing) {
                 progress.assessmentAttempts.push(att);
+            } else if (typeof att.score === 'number' && att.score > existing.score) {
+                existing.score = att.score;
+                existing.total = att.total || existing.total;
+                existing.completedAt = new Date();
             }
         }
     }
 
-    // Sincronizar reflexiones de error (respetando privacidad)
+    // Sincronizar simulaciones priorizando el mejor resultado obtenido
+    if (Array.isArray(localData.simulationAttempts || localData.roleSimulations)) {
+        const sims = localData.simulationAttempts || localData.roleSimulations;
+        for (const sim of sims) {
+            const simId = sim.simulationId;
+            if (!simId) continue;
+            const existing = progress.simulationAttempts.find(s => s.simulationId === simId);
+            if (!existing) {
+                progress.simulationAttempts.push({
+                    simulationId: simId,
+                    score: typeof sim.score === 'number' ? sim.score : 0,
+                    passed: Boolean(sim.passed ?? (sim.score >= 70)),
+                    decisions: sim.decisions || [sim.selectedOption].filter(Boolean),
+                    feedback: sim.feedback || '',
+                    completedAt: sim.completedAt || new Date()
+                });
+            } else if (typeof sim.score === 'number' && sim.score > existing.score) {
+                existing.score = sim.score;
+                existing.passed = Boolean(sim.passed ?? (sim.score >= 70));
+                existing.decisions = sim.decisions || [sim.selectedOption].filter(Boolean);
+                existing.feedback = sim.feedback || existing.feedback;
+                existing.completedAt = new Date();
+            }
+        }
+    }
+
+    // Sincronizar reflexiones de error (respetando privacidad y conservando la versión con mayor contenido)
     if (Array.isArray(localData.errorReflections)) {
         for (const ref of localData.errorReflections) {
-            if (ref.situation && !progress.errorReflections.some(r => r.situation === ref.situation && r.actionTaken === ref.actionTaken)) {
-                progress.errorReflections.push({
-                    situation: ref.situation,
-                    actionTaken: ref.actionTaken,
-                    difficultyEncountered: ref.difficultyEncountered || '',
-                    alternativeApproach: ref.alternativeApproach || '',
-                    reinforcementModuleId: ref.reinforcementModuleId || '',
-                    sharedWithSupervisor: Boolean(ref.sharedWithSupervisor),
-                    sharedAt: ref.sharedWithSupervisor ? new Date() : null,
-                    createdAt: ref.createdAt ? new Date(ref.createdAt) : new Date()
-                });
+            const refId = ref._id || ref.id;
+            const existing = refId
+                ? progress.errorReflections.id(String(refId))
+                : progress.errorReflections.find(r => r.situation === ref.situation);
+
+            if (!existing) {
+                if (ref.situation || ref.quePaso) {
+                    progress.errorReflections.push({
+                        situation: ref.situation || ref.quePaso || ref.titulo,
+                        actionTaken: ref.actionTaken || ref.quePaso || '',
+                        difficultyEncountered: ref.difficultyEncountered || ref.informacion || '',
+                        alternativeApproach: ref.alternativeApproach || ref.otraManera || '',
+                        reinforcementModuleId: ref.reinforcementModuleId || ref.linkedModuleId || '',
+                        sharedWithSupervisor: Boolean(ref.sharedWithSupervisor || ref.compartidoConSupervisor),
+                        sharedAt: (ref.sharedWithSupervisor || ref.compartidoConSupervisor) ? new Date() : null,
+                        createdAt: ref.createdAt ? new Date(ref.createdAt) : new Date(),
+                        updatedAt: new Date()
+                    });
+                }
+            } else {
+                // Conflicto concurrente entre dispositivos: conservar la versión de mayor contenido
+                const localText = `${ref.situation || ref.quePaso || ''} ${ref.difficultyEncountered || ref.informacion || ''} ${ref.alternativeApproach || ref.otraManera || ''}`;
+                const existingText = `${existing.situation || ''} ${existing.difficultyEncountered || ''} ${existing.alternativeApproach || ''}`;
+
+                if (localText.length > existingText.length) {
+                    existing.situation = ref.situation || ref.quePaso || existing.situation;
+                    existing.actionTaken = ref.actionTaken || existing.actionTaken;
+                    existing.difficultyEncountered = ref.difficultyEncountered || ref.informacion || existing.difficultyEncountered;
+                    existing.alternativeApproach = ref.alternativeApproach || ref.otraManera || existing.alternativeApproach;
+                    existing.reinforcementModuleId = ref.reinforcementModuleId || ref.linkedModuleId || existing.reinforcementModuleId;
+                    existing.updatedAt = new Date();
+                }
+
+                if ((ref.sharedWithSupervisor || ref.compartidoConSupervisor) && !existing.sharedWithSupervisor) {
+                    existing.sharedWithSupervisor = true;
+                    existing.sharedAt = new Date();
+                }
             }
         }
     }
@@ -196,6 +310,7 @@ export async function saveErrorReflection(user, reflectionData) {
     }
 
     const newReflection = {
+        _id: reflectionData._id || reflectionData.id || crypto.randomUUID(),
         situation: reflectionData.situation,
         actionTaken: reflectionData.actionTaken,
         difficultyEncountered: reflectionData.difficultyEncountered || '',
@@ -224,7 +339,16 @@ export async function assignTrack(supervisorUser, targetUserId, trackId) {
         throw err;
     }
 
-    let progress = await AcademyProgress.findOne({ userId: targetUserId });
+    let progress;
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+        progress = getInMemoryProgressDoc(targetUserId);
+        progress.assignedTrack = trackId;
+        progress.lastActiveAt = new Date();
+        await progress.save();
+        return progress;
+    }
+
+    progress = await AcademyProgress.findOne({ userId: targetUserId });
     if (!progress) {
         progress = await AcademyProgress.create({
             userId: targetUserId,
@@ -274,6 +398,27 @@ export async function getTeamProgressForSupervisor(supervisorUser) {
         const err = new Error('Acceso restringido a supervisión educativa.');
         err.status = 403;
         throw err;
+    }
+
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+        return Array.from(inMemoryProgressStore.values()).map(p => ({
+            userId: p.userId,
+            userName: p.userName,
+            userEmail: p.userEmail,
+            userRole: p.userRole,
+            assignedTrack: p.assignedTrack,
+            assignedModules: p.assignedModules || [],
+            recommendedActivities: p.recommendedActivities || [],
+            completedLessonsCount: (p.completedLessons || []).length,
+            completedRoleModulesCount: (p.completedRoleModules || []).length,
+            simulationAttemptsCount: (p.simulationAttempts || []).length,
+            negotiationSessionsCount: (p.negotiationSessions || []).length,
+            averageNegotiationScore: 0,
+            bestSimulationScore: 0,
+            sharedReflectionsCount: (p.errorReflections || []).filter(r => r.sharedWithSupervisor).length,
+            sharedReflections: (p.errorReflections || []).filter(r => r.sharedWithSupervisor),
+            lastActiveAt: p.lastActiveAt
+        }));
     }
 
     const [allProgress, allUsers] = await Promise.all([

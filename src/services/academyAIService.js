@@ -15,68 +15,65 @@
 
 import { NEGOTIATION_SCENARIOS, COMPETENCY_DEFINITIONS } from '../lib/academy/negotiationScenarios.js';
 import { TUTOR_PROCEDURES, getAvailableProceduresForRole } from '../lib/academy/roleTutorKnowledge.js';
+import {
+    reserveAICall,
+    settleAICall,
+    incrementUserQuota,
+    getBudgetStatus,
+    resetBudgetForTesting,
+    USER_QUOTA_LIMITS
+} from './academyBudgetService.js';
+
+export const resetBudgetTrackerForTesting = resetBudgetForTesting;
 
 const MAX_NEGOTIATION_TURNS = 15;
 const MAX_BUYER_TOKENS = 250;
 const MAX_EVAL_TOKENS = 900;
 const AI_TIMEOUT_MS = 12000;
-const MAX_CONCURRENT_AI_REQUESTS = 2;
-const MAX_USER_REQUESTS_PER_MINUTE = 10;
-
-// Estado de consumo y control presupuestario en memoria
-let cumulativeCostUSD = 0;
-let activeAiRequests = 0;
-const userRequestHistory = new Map(); // userId -> timestamps[]
 
 /**
- * Evalúa el estado de conexión con OpenAI para Academy con triple candado:
- * 1. Clave dedicada ACADEMY_OPENAI_API_KEY (estrictamente no se reutiliza OPENAI_API_KEY de Codex/CRM).
- * 2. Flag explícito de servidor ACADEMY_AI_ENABLED === 'true'.
- * 3. Presupuesto independiente autorizado ACADEMY_AI_BUDGET_USD > 0.
+ * Consulta el estado de la conexión a OpenAI y presupuesto persistente
  */
 export function getAIConnectionStatus(userId = null) {
     const key = process.env.ACADEMY_OPENAI_API_KEY?.trim();
     const enabled = process.env.ACADEMY_AI_ENABLED === 'true';
-    const budgetUSD = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
 
+    let syncResult;
     if (!key || key.length < 10) {
-        return { isCapable: false, reason: 'missing_dedicated_key', message: 'No se configuró ACADEMY_OPENAI_API_KEY dedicada.' };
-    }
-    if (!enabled) {
-        return { isCapable: false, reason: 'disabled_by_config', message: 'ACADEMY_AI_ENABLED no está habilitado explícitamente en el servidor.' };
-    }
-    if (isNaN(budgetUSD) || budgetUSD <= 0) {
-        return { isCapable: false, reason: 'no_budget_authorized', message: 'No se definió un presupuesto ACADEMY_AI_BUDGET_USD independiente y aprobado para Academy.' };
-    }
-    if (cumulativeCostUSD >= budgetUSD) {
-        return { isCapable: false, reason: 'budget_exceeded', message: `Presupuesto asignado a Academy ($${budgetUSD.toFixed(2)} USD) alcanzado o superado ($${cumulativeCostUSD.toFixed(4)} USD gastados).` };
-    }
-    if (activeAiRequests >= MAX_CONCURRENT_AI_REQUESTS) {
-        return { isCapable: false, reason: 'concurrency_limit', message: 'Límite de concurrencia de IA alcanzado.' };
-    }
-    if (userId) {
-        const now = Date.now();
-        const timestamps = (userRequestHistory.get(userId) || []).filter(t => now - t < 60000);
-        if (timestamps.length >= MAX_USER_REQUESTS_PER_MINUTE) {
-            return { isCapable: false, reason: 'rate_limited', message: 'Límite de solicitudes por minuto alcanzado para este usuario.' };
+        syncResult = { isCapable: false, reason: 'missing_dedicated_key', message: 'No se configuró ACADEMY_OPENAI_API_KEY dedicada.' };
+    } else if (!enabled) {
+        syncResult = { isCapable: false, reason: 'disabled_by_config', message: 'ACADEMY_AI_ENABLED no está habilitado explícitamente en el servidor.' };
+    } else {
+        const envBudget = parseFloat(process.env.ACADEMY_AI_BUDGET_USD || '0');
+        if (isNaN(envBudget) || envBudget <= 0) {
+            syncResult = { isCapable: false, reason: 'no_budget_authorized', message: 'No se autorizó un presupuesto ACADEMY_AI_BUDGET_USD (> 0 USD) independiente.' };
+        } else {
+            syncResult = { isCapable: true, reason: 'authorized', message: 'Conexión OpenAI autorizada y dentro de presupuesto.' };
         }
     }
 
-    return { isCapable: true, reason: 'authorized', message: 'Conexión OpenAI autorizada y dentro de presupuesto.' };
-}
+    const promise = (async () => {
+        if (!syncResult.isCapable) return syncResult;
+        try {
+            const budget = await getBudgetStatus(userId);
+            if (budget.authorizedBudgetUSD <= 0) {
+                return { isCapable: false, reason: 'no_budget_authorized', message: 'No se autorizó un presupuesto ACADEMY_AI_BUDGET_USD (> 0 USD) independiente.' };
+            }
+            if (budget.availableUSD <= 0.0001) {
+                return { isCapable: false, reason: 'budget_exceeded', message: `Presupuesto asignado agotado ($${budget.authorizedBudgetUSD} USD autorizados, $${budget.confirmedSpentUSD} USD confirmados).` };
+            }
+            return { isCapable: true, reason: 'authorized', message: 'Conexión OpenAI autorizada y dentro de presupuesto.', budget };
+        } catch {
+            return syncResult;
+        }
+    })();
 
-function isLiveAICapable(userId = null) {
-    return getAIConnectionStatus(userId).isCapable;
+    Object.assign(promise, syncResult);
+    return promise;
 }
 
 function getApiKey() {
     return process.env.ACADEMY_OPENAI_API_KEY?.trim() || '';
-}
-
-export function resetBudgetTrackerForTesting() {
-    cumulativeCostUSD = 0;
-    activeAiRequests = 0;
-    userRequestHistory.clear();
 }
 
 /**
@@ -114,7 +111,7 @@ export function checkConfidentialityPolicy(message = '') {
 /**
  * Genera la respuesta del comprador simulado durante la negociación.
  */
-export async function generateBuyerReply({ scenarioId, conversationHistory = [], sellerMessage = '', level = 'intermedio' }) {
+export async function generateBuyerReply({ scenarioId, conversationHistory = [], sellerMessage = '', level = 'intermedio', userId = 'anon' }) {
     const scenario = NEGOTIATION_SCENARIOS.find(s => s.id === scenarioId) || NEGOTIATION_SCENARIOS[0];
     
     // Contar turnos del vendedor
@@ -128,9 +125,25 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
         };
     }
 
-    if (isLiveAICapable()) {
+    // Intentar reserva atómica en presupuesto persistente
+    let reservation = null;
+    try {
+        reservation = await reserveAICall({ userId, callType: 'buyer' });
+    } catch {
+        reservation = { allowed: false, simulated: true, reason: 'budget_service_offline' };
+    }
+
+    if (reservation?.allowed) {
         try {
-            const reply = await callOpenAIBuyer(scenario, conversationHistory, sellerMessage, level);
+            const { reply, tokensIn, tokensOut } = await callOpenAIBuyer(scenario, conversationHistory, sellerMessage, level);
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                tokensIn,
+                tokensOut,
+                status: 'success',
+                userId,
+                callType: 'buyer'
+            });
             return {
                 text: reply,
                 isRealAiConnected: true,
@@ -139,6 +152,14 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
             };
         } catch (err) {
             console.warn('[AcademyAI] Fallback a motor pedagógico simulado:', err.message);
+            const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                status: isTimeout ? 'uncertain' : 'failed',
+                errorMessage: err.message,
+                userId,
+                callType: 'buyer'
+            });
         }
     }
 
@@ -148,6 +169,8 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
         text: simulatedReply,
         isRealAiConnected: false,
         provider: 'simulated',
+        aiStatusReason: reservation?.reason || 'simulated_mode',
+        quotaMessage: reservation?.message || null,
         turnsCount: sellerTurns
     };
 }
@@ -155,12 +178,28 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
 /**
  * Evalúa independientemente la negociación finalizada analizando las 6 competencias.
  */
-export async function evaluateNegotiation({ scenarioId, conversationHistory = [] }) {
+export async function evaluateNegotiation({ scenarioId, conversationHistory = [], userId = 'anon' }) {
     const scenario = NEGOTIATION_SCENARIOS.find(s => s.id === scenarioId) || NEGOTIATION_SCENARIOS[0];
 
-    if (isLiveAICapable()) {
+    let reservation = null;
+    try {
+        reservation = await reserveAICall({ userId, callType: 'evaluator' });
+    } catch {
+        reservation = { allowed: false, simulated: true, reason: 'budget_service_offline' };
+    }
+
+    if (reservation?.allowed) {
         try {
-            const evalResult = await callOpenAIEvaluator(scenario, conversationHistory);
+            const { evalResult, tokensIn, tokensOut } = await callOpenAIEvaluator(scenario, conversationHistory);
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                tokensIn,
+                tokensOut,
+                status: 'success',
+                userId,
+                callType: 'evaluator'
+            });
+            try { await incrementUserQuota(userId, 'session'); } catch {}
             return {
                 ...evalResult,
                 isRealAiConnected: true,
@@ -168,21 +207,32 @@ export async function evaluateNegotiation({ scenarioId, conversationHistory = []
             };
         } catch (err) {
             console.warn('[AcademyAI] Evaluador en fallback simulado:', err.message);
+            const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                status: isTimeout ? 'uncertain' : 'failed',
+                errorMessage: err.message,
+                userId,
+                callType: 'evaluator'
+            });
         }
     }
 
     const simulatedEval = simulateIndependentEvaluation(scenario, conversationHistory);
+    try { await incrementUserQuota(userId, 'session'); } catch {}
     return {
         ...simulatedEval,
         isRealAiConnected: false,
-        provider: 'simulated'
+        provider: 'simulated',
+        aiStatusReason: reservation?.reason || 'simulated_mode',
+        quotaMessage: reservation?.message || null
     };
 }
 
 /**
  * Tutor con IA basado estrictamente en procedimientos aprobados y aislado de datos financieros confidenciales.
  */
-export async function generateTutorReply({ userMessage = '', userRole = 'vendedor', conversationHistory = [] }) {
+export async function generateTutorReply({ userMessage = '', userRole = 'vendedor', conversationHistory = [], userId = 'anon' }) {
     if (!userMessage || !userMessage.trim()) {
         return {
             text: '¿En qué procedimiento o consulta comercial de AutoSporting te puedo orientar hoy?',
@@ -201,9 +251,25 @@ export async function generateTutorReply({ userMessage = '', userRole = 'vendedo
         };
     }
 
-    if (isLiveAICapable()) {
+    let reservation = null;
+    try {
+        reservation = await reserveAICall({ userId, callType: 'tutor' });
+    } catch {
+        reservation = { allowed: false, simulated: true, reason: 'budget_service_offline' };
+    }
+
+    if (reservation?.allowed) {
         try {
-            const reply = await callOpenAITutor(userMessage, userRole, conversationHistory);
+            const { reply, tokensIn, tokensOut } = await callOpenAITutor(userMessage, userRole, conversationHistory);
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                tokensIn,
+                tokensOut,
+                status: 'success',
+                userId,
+                callType: 'tutor'
+            });
+            try { await incrementUserQuota(userId, 'tutor'); } catch {}
             return {
                 text: reply,
                 isRealAiConnected: true,
@@ -211,15 +277,25 @@ export async function generateTutorReply({ userMessage = '', userRole = 'vendedo
             };
         } catch (err) {
             console.warn('[AcademyAI] Fallback de tutor a motor local:', err.message);
+            const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
+            await settleAICall({
+                reservationId: reservation.reservationId,
+                status: isTimeout ? 'uncertain' : 'failed',
+                errorMessage: err.message,
+                userId,
+                callType: 'tutor'
+            });
         }
     }
 
-    // Respuesta inteligente basada en la base de conocimientos de procedimientos
     const simulatedResponse = simulateTutorKnowledgeResponse(userMessage, userRole);
+    try { await incrementUserQuota(userId, 'tutor'); } catch {}
     return {
         text: simulatedResponse,
         isRealAiConnected: false,
-        provider: 'simulated'
+        provider: 'simulated',
+        aiStatusReason: reservation?.reason || 'simulated_mode',
+        quotaMessage: reservation?.message || null
     };
 }
 
@@ -336,30 +412,93 @@ function simulateIndependentEvaluation(scenario, history) {
     const sellerMessages = history.filter(m => m.sender === 'seller');
     const fullText = sellerMessages.map(m => m.text).join(' ').toLowerCase();
 
-    // Detección de errores críticos
-    const committedPersonalAccount = fullText.includes('mi alias') || fullText.includes('mi cbu') || fullText.includes('mi cuenta');
-    const promisedUnauthorizedDelivery = fullText.includes('llevátela hoy') || fullText.includes('te la llevás ya') || fullText.includes('sin transferencia');
-    const guaranteedCreditApproval = fullText.includes('sale seguro') || fullText.includes('te lo apruebo yo') || fullText.includes('sale con dni sí o sí');
+    // 1. Detección de errores críticos institucionales
+    const committedPersonalAccount = fullText.includes('mi alias') || fullText.includes('mi cbu') || fullText.includes('mi cuenta') || fullText.includes('transferime a mi');
+    const promisedUnauthorizedDelivery = fullText.includes('llevátela hoy') || fullText.includes('te la llevás ya') || fullText.includes('sin transferencia') || fullText.includes('llevatela puesta');
+    const guaranteedCreditApproval = fullText.includes('sale seguro') || fullText.includes('te lo apruebo yo') || fullText.includes('sale con dni sí o sí') || fullText.includes('sin veraz') || fullText.includes('garantizo el crédito');
 
     const hasCriticalError = committedPersonalAccount || promisedUnauthorizedDelivery || guaranteedCreditApproval;
 
-    const declinedUnviableDeal = fullText.includes('no podemos llegar') ||
-                                  fullText.includes('no podemos tomar') ||
-                                  fullText.includes('no podemos acceder') ||
-                                  fullText.includes('respetamos tu decisión') ||
-                                  fullText.includes('respetamos su decisión') ||
-                                  fullText.includes('no es viable') ||
-                                  fullText.includes('no es posible esa rebaja') ||
-                                  fullText.includes('destruye el margen');
+    // 2. Detección de rechazo o negativa frente a exigencias desmedidas
+    const hasRefusal = fullText.includes('no podemos') ||
+                       fullText.includes('no es posible') ||
+                       fullText.includes('imposible') ||
+                       fullText.includes('no llego') ||
+                       fullText.includes('no le puedo bajar') ||
+                       fullText.includes('precio fijo') ||
+                       fullText.includes('precio es fijo') ||
+                       fullText.includes('no se baja') ||
+                       fullText.includes('no bajo') ||
+                       fullText.includes('no te puedo tomar') ||
+                       fullText.includes('desist') ||
+                       fullText.includes('no podemos acceder') ||
+                       fullText.includes('no aceptamos') ||
+                       fullText.includes('respeto su decisión') ||
+                       fullText.includes('respetamos su decisión') ||
+                       fullText.includes('no es viable') ||
+                       fullText.includes('no hago descuento') ||
+                       fullText.includes('no hacemos descuento') ||
+                       fullText.includes('destruye el margen');
+
+    // 3. Factores de contexto para determinar si el rechazo fue justificado o injustificado/prematuro
+    const hasDiagnosis = fullText.includes('para qué') ||
+                         fullText.includes('qué uso') ||
+                         fullText.includes('cuánto pensabas') ||
+                         fullText.includes('qué duda') ||
+                         fullText.includes('cuál es la duda') ||
+                         fullText.includes('qué presupuesto') ||
+                         fullText.includes('qué buscás') ||
+                         fullText.includes('qué busca') ||
+                         fullText.includes('contame') ||
+                         fullText.includes('comentame') ||
+                         sellerMessages.length >= 3;
+
+    const hasListeningOrDiagnosis = hasDiagnosis ||
+                                    fullText.includes('comprendo') ||
+                                    fullText.includes('entiendo') ||
+                                    fullText.includes('escucho') ||
+                                    fullText.includes('postura');
+
+    const hasExplanation = fullText.includes('costo') ||
+                           fullText.includes('margen') ||
+                           fullText.includes('peritaje') ||
+                           fullText.includes('valor de lista') ||
+                           fullText.includes('service') ||
+                           fullText.includes('historial') ||
+                           fullText.includes('garantía') ||
+                           fullText.includes('estado de la unidad') ||
+                           fullText.includes('oficial') ||
+                           fullText.includes('procedimiento') ||
+                           fullText.includes('por política') ||
+                           fullText.includes('diferencia') ||
+                           fullText.includes('cubierta') ||
+                           fullText.includes('deuda');
+
+    const hasAlternatives = fullText.includes('te propongo') ||
+                            fullText.includes('podemos ver') ||
+                            fullText.includes('otra opción') ||
+                            fullText.includes('otra unidad') ||
+                            fullText.includes('financi') ||
+                            fullText.includes('transferencia incluida') ||
+                            fullText.includes('atención de') ||
+                            fullText.includes('podemos evaluar') ||
+                            fullText.includes('si le parece') ||
+                            fullText.includes('revisemos');
+
+    const isJustifiedDecline = hasRefusal && hasListeningOrDiagnosis && (hasExplanation || hasAlternatives);
+    const isUnjustifiedDecline = hasRefusal && !isJustifiedDecline;
 
     // Evaluaciones individuales de competencias
     // 1. Identificación de necesidades (20%)
     let scoreIndagacion = 75;
     let quoteIndagacion = sellerMessages[0]?.text || 'Conversación inicial';
     let feedbackIndagacion = 'Hizo preguntas de exploración básica sobre el uso previsto del vehículo.';
-    if (fullText.includes('para qué') || fullText.includes('qué uso') || fullText.includes('cuánto pensabas') || fullText.includes('qué duda')) {
+    if (fullText.includes('para qué') || fullText.includes('qué uso') || fullText.includes('cuánto pensabas') || fullText.includes('qué duda') || fullText.includes('cuál es la duda')) {
         scoreIndagacion = 90;
         feedbackIndagacion = 'Excelente diagnóstico. Preguntas abiertas para detectar la motivación real y el presupuesto.';
+    } else if (isUnjustifiedDecline) {
+        scoreIndagacion = 60;
+        feedbackIndagacion = 'Indagación insuficiente: se respondió o rechazó antes de profundizar en las necesidades del comprador.';
     }
 
     // 2. Comunicación y claridad (15%)
@@ -373,32 +512,41 @@ function simulateIndependentEvaluation(scenario, history) {
 
     // 3. Argumentación comercial (20%)
     let scoreArgumentacion = 70;
-    let quoteArgumentacion = sellerMessages.find(m => m.text.toLowerCase().includes('servicio') || m.text.toLowerCase().includes('historial') || m.text.toLowerCase().includes('garantía'))?.text || sellerMessages[0]?.text || '';
+    let quoteArgumentacion = sellerMessages.find(m => m.text.toLowerCase().includes('servicio') || m.text.toLowerCase().includes('historial') || m.text.toLowerCase().includes('garantía') || m.text.toLowerCase().includes('oficial'))?.text || sellerMessages[0]?.text || '';
     let feedbackArgumentacion = 'Defendió los atributos del vehículo.';
     if (fullText.includes('oficial') || fullText.includes('verificación') || fullText.includes('dominio') || fullText.includes('80 puntos') || fullText.includes('estado')) {
         scoreArgumentacion = 88;
         feedbackArgumentacion = 'Argumentó sólidamente basándose en la procedencia, historial técnico y seguridad documental de la agencia.';
+    } else if (isUnjustifiedDecline) {
+        scoreArgumentacion = 62;
+        feedbackArgumentacion = 'Argumentación débil: no se sostuvieron los atributos del vehículo ni el valor agregado de la agencia.';
     }
 
     // 4. Manejo de objeciones (20%)
     let scoreObjeciones = 72;
-    let quoteObjeciones = sellerMessages.find(m => m.text.toLowerCase().includes('entiendo') || m.text.toLowerCase().includes('diferencia') || m.text.toLowerCase().includes('comprendo'))?.text || sellerMessages[0]?.text || '';
+    let quoteObjeciones = sellerMessages.find(m => m.text.toLowerCase().includes('entiendo') || m.text.toLowerCase().includes('diferencia') || m.text.toLowerCase().includes('comprendo') || m.text.toLowerCase().includes('analicemos'))?.text || sellerMessages[0]?.text || '';
     let feedbackObjeciones = 'Atendió las dudas del cliente sin ponerse a la defensiva.';
-    if (((fullText.includes('entiendo') || fullText.includes('comprendo')) && (fullText.includes('pero') || fullText.includes('analicemos') || fullText.includes('veamos') || fullText.includes('sin embargo'))) || (fullText.includes('precio de lista') && fullText.includes('atención'))) {
+    if (((fullText.includes('entiendo') || fullText.includes('comprendo')) && (fullText.includes('pero') || fullText.includes('analicemos') || fullText.includes('veamos') || fullText.includes('sin embargo'))) || (fullText.includes('precio de lista') && fullText.includes('atención')) || isJustifiedDecline) {
         scoreObjeciones = 86;
         feedbackObjeciones = 'Recepción empática: reformuló la objeción hacia la propuesta de valor sin confrontar.';
+    } else if (isUnjustifiedDecline) {
+        scoreObjeciones = 58;
+        feedbackObjeciones = 'Manejo rígido de objeciones: se clausuró el diálogo sin explorar alternativas viables.';
     }
 
     // 5. Negociación y autorizaciones (15%)
     let scoreAutorizaciones = 85;
-    let quoteAutorizaciones = sellerMessages.find(m => m.text.toLowerCase().includes('autoriz') || m.text.toLowerCase().includes('titular') || m.text.toLowerCase().includes('procedimiento') || m.text.toLowerCase().includes('margen'))?.text || '';
+    let quoteAutorizaciones = sellerMessages.find(m => m.text.toLowerCase().includes('autoriz') || m.text.toLowerCase().includes('titular') || m.text.toLowerCase().includes('procedimiento') || m.text.toLowerCase().includes('margen') || m.text.toLowerCase().includes('cuenta'))?.text || '';
     let feedbackAutorizaciones = 'Respetó los límites operativos de la agencia.';
     if (hasCriticalError) {
-        scoreAutorizaciones = 30;
+        scoreAutorizaciones = 25;
         feedbackAutorizaciones = 'ERROR CRÍTICO: Se otorgaron o prometieron condiciones no autorizadas por procedimiento (PROC-VTA).';
-    } else if (declinedUnviableDeal || fullText.includes('consultar con el titular') || fullText.includes('procedimiento') || fullText.includes('cuenta oficial') || fullText.includes('autoriz')) {
+    } else if (isJustifiedDecline || fullText.includes('consultar con el titular') || fullText.includes('procedimiento') || fullText.includes('cuenta oficial') || fullText.includes('autoriz')) {
         scoreAutorizaciones = 95;
         feedbackAutorizaciones = 'Excelente apego a procedimientos: defendió la rentabilidad de la agencia o condicionó descuentos a la aprobación formal.';
+    } else if (isUnjustifiedDecline) {
+        scoreAutorizaciones = 65;
+        feedbackAutorizaciones = 'Cierre apresurado sin consultar ni ofrecer alternativas autorizadas.';
     }
 
     // 6. Cierre o próximo paso (10%)
@@ -408,10 +556,13 @@ function simulateIndependentEvaluation(scenario, history) {
     if (fullText.includes('seña') || fullText.includes('reserva') || fullText.includes('jueves') || fullText.includes('mañana a las') || fullText.includes('agenda')) {
         scoreCierre = 90;
         feedbackCierre = 'Cierre con compromiso firme: agendó próximo paso con fecha, hora y entregable puntual.';
+    } else if (isUnjustifiedDecline) {
+        scoreCierre = 55;
+        feedbackCierre = 'Se cerró la negociación sin pautar seguimiento ni dejar abierta la puerta comercial.';
     }
 
     // Ponderación oficial
-    const weightedScore = Math.round(
+    let weightedScore = Math.round(
         (scoreIndagacion * 0.20) +
         (scoreComunicacion * 0.15) +
         (scoreArgumentacion * 0.20) +
@@ -420,23 +571,39 @@ function simulateIndependentEvaluation(scenario, history) {
         (scoreCierre * 0.10)
     );
 
+    let finalScore = weightedScore;
     let outcomeStatus = 'seguimiento_agendado';
+
     if (hasCriticalError) {
         outcomeStatus = 'sin_acuerdo_error_grave';
-    } else if (declinedUnviableDeal) {
+        finalScore = Math.min(weightedScore, 40);
+    } else if (isJustifiedDecline) {
         outcomeStatus = 'desistido_con_criterio';
+        finalScore = Math.max(weightedScore, 85);
+    } else if (isUnjustifiedDecline) {
+        outcomeStatus = 'desistido_injustificado';
+        finalScore = Math.min(weightedScore, 65);
     } else if (weightedScore >= 82) {
         outcomeStatus = 'acuerdo_cerrado';
     }
 
+    const evaluationContext = {
+        buyerDemands: scenario.buyerPromptInstruction || scenario.clientProfile?.initialTone || 'Exigencia de descuento o condiciones especiales',
+        sellerDiagnosis: hasDiagnosis ? 'El vendedor indagó adecuadamente las necesidades y presupuesto del comprador.' : 'El vendedor no profundizó en el diagnóstico de necesidades antes de avanzar.',
+        authorizedConditions: `Valor de lista: $${scenario.vehicleOfInterest?.listPrice?.toLocaleString('es-AR')}. Pautas: ${scenario.pedagogicalGoal}`,
+        alternativesOffered: hasAlternatives ? 'Se propusieron alternativas viables dentro de los márgenes y procedimientos autorizados.' : 'No se ofrecieron alternativas comerciales estructuradas.',
+        refusalExplanation: hasRefusal ? (hasExplanation ? 'Negativa fundamentada con claridad en el estado de la unidad, costos o rentabilidad.' : 'Negativa prematura sin explicación comprensible para el cliente.') : 'No se requirió negativa terminante.',
+        nextStepSummary: quoteCierre || 'Próximo paso registrado al finalizar la interacción.'
+    };
+
     const strengths = [
         scoreComunicacion >= 80 ? 'Excelente claridad en la modulación del mensaje y respeto por los tiempos del cliente.' : 'Disposición cordial.',
-        scoreArgumentacion >= 80 ? 'Uso eficaz de la procedencia y el historial verificado para fundamentar el precio de la unidad.' : 'Conocimiento del vehículo.'
+        scoreAutorizaciones >= 80 ? 'Firme defensa de la rentabilidad y apego a las políticas comerciales de AutoSporting.' : 'Defensa del valor de la unidad.'
     ];
 
     const improvements = [
-        scoreObjeciones < 80 ? 'Profundizar más en la duda oculta antes de contraofertar de forma anticipada.' : 'Reforzar el desglose de la transferencia.',
-        hasCriticalError ? 'CRÍTICO: No comprometer fondos, cuentas personales ni plazos de entrega sin procedimiento.' : 'Explicitar con mayor solidez los tiempos del informe de dominio.'
+        isUnjustifiedDecline ? 'Evitar rechazos apresurados: indagar a fondo la duda oculta y fundamentar el valor antes de cerrar la puerta.' : (scoreObjeciones < 80 ? 'Profundizar más en la duda oculta antes de contraofertar de forma anticipada.' : 'Reforzar el desglose de los gastos de transferencia.'),
+        hasCriticalError ? 'CRÍTICO: No comprometer fondos, cuentas personales ni plazos de entrega sin procedimiento.' : 'Explicitar con mayor solidez los tiempos del informe de dominio y gestoría.'
     ];
 
     const keyMoments = [
@@ -460,8 +627,10 @@ function simulateIndependentEvaluation(scenario, history) {
 
     return {
         scenarioId: scenario.id,
-        score: hasCriticalError ? Math.min(weightedScore, 40) : (declinedUnviableDeal ? Math.max(weightedScore, 85) : weightedScore),
+        score: finalScore,
         outcomeStatus,
+        evaluationContext,
+        heuristicDisclaimer: 'Aviso pedagógico: En modo simulado, el reporte ofrece una orientación pedagógica heurística basada en las pautas y rúbricas institucionales de AutoSporting.',
         competencies: {
             identificacionNecesidades: { score: scoreIndagacion, feedback: feedbackIndagacion, quote: quoteIndagacion.slice(0, 120) },
             comunicacionClaridad: { score: scoreComunicacion, feedback: feedbackComunicacion, quote: quoteComunicacion.slice(0, 120) },
@@ -563,7 +732,11 @@ Reglas estrictas de comportamiento:
         clearTimeout(timer);
         if (!res.ok) throw new Error(`OpenAI buyer error HTTP ${res.status}`);
         const data = await res.json();
-        return data.choices?.[0]?.message?.content?.trim() || 'Entiendo lo que me decís. Déjame evaluar la propuesta.';
+        return {
+            reply: data.choices?.[0]?.message?.content?.trim() || 'Entiendo lo que me decís. Déjame evaluar la propuesta.',
+            tokensIn: data.usage?.prompt_tokens || 0,
+            tokensOut: data.usage?.completion_tokens || 0
+        };
     } catch (e) {
         clearTimeout(timer);
         throw e;
@@ -576,6 +749,10 @@ async function callOpenAIEvaluator(scenario, history) {
 
     const systemPrompt = `Sos el Evaluador Pedagógico Independiente de AutoSporting Academy.
 Tu tarea es analizar el desempeño del vendedor en la negociación del escenario "${scenario.title}" (${scenario.level}).
+Contexto del caso:
+- Exigencias del comprador: ${scenario.buyerPromptInstruction || scenario.clientProfile?.initialTone}.
+- Condiciones autorizadas de la agencia: Valor de lista $${scenario.vehicleOfInterest?.listPrice?.toLocaleString('es-AR')}. Pauta: ${scenario.pedagogicalGoal}.
+
 Evaluá estas 6 competencias con sus ponderaciones exactas:
 1. Identificación de necesidades (20%)
 2. Comunicación y claridad (15%)
@@ -584,15 +761,24 @@ Evaluá estas 6 competencias con sus ponderaciones exactas:
 5. Negociación y autorizaciones (15%)
 6. Cierre o próximo paso (10%)
 
-Condiciones cruciales:
-- Citá fragmentos reales textuales de la conversación.
-- Distinguí errores críticos (prometer descuentos sin autorización, aceptar señas a cuentas personales, prometer entrega sin papeles) de oportunidades de mejora.
-- Si el vendedor desistió correctamente de un mal negocio o exigencia ruinosa, evalualo POSITIVAMENTE.
+Criterios de calificación estrictos:
+- Rechazo justificado: Si el vendedor diagnosticó necesidades, explicó por qué no puede acceder a una rebaja desmedida y ofreció alternativas válidas dentro de pautas, calificalo POSITIVAMENTE con 80 o superior ("desistido_con_criterio").
+- Rechazo injustificado o prematuro: Si rechazó sin diagnosticar, sin explicar motivos o sin proponer opciones, asigná calificación menor ("desistido_injustificado").
+- Errores críticos institucionales: Si prometió entrega sin transferencia formal, aceptó pagos a cuenta/alias personal o garantizó crédito sin análisis de scoring bancario, la calificación NO PUEDE superar los 40 puntos ("sin_acuerdo_error_grave"), sin importar la cortesía.
+- Citá fragmentos reales textuales de la conversación que justifiquen cada puntaje.
 - Devolvé ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
 {
   "scenarioId": "${scenario.id}",
   "score": 85,
-  "outcomeStatus": "acuerdo_cerrado", // opciones: "acuerdo_cerrado", "seguimiento_agendado", "desistido_con_criterio", "sin_acuerdo_error_grave"
+  "outcomeStatus": "acuerdo_cerrado", // opciones: "acuerdo_cerrado", "seguimiento_agendado", "desistido_con_criterio", "desistido_injustificado", "sin_acuerdo_error_grave"
+  "evaluationContext": {
+    "buyerDemands": "...",
+    "sellerDiagnosis": "...",
+    "authorizedConditions": "...",
+    "alternativesOffered": "...",
+    "refusalExplanation": "...",
+    "nextStepSummary": "..."
+  },
   "competencies": {
     "identificacionNecesidades": { "score": 80, "feedback": "...", "quote": "..." },
     "comunicacionClaridad": { "score": 85, "feedback": "...", "quote": "..." },
@@ -635,7 +821,12 @@ Condiciones cruciales:
         clearTimeout(timer);
         if (!res.ok) throw new Error(`OpenAI eval error HTTP ${res.status}`);
         const data = await res.json();
-        return JSON.parse(data.choices?.[0]?.message?.content);
+        const evalResult = JSON.parse(data.choices?.[0]?.message?.content);
+        return {
+            evalResult,
+            tokensIn: data.usage?.prompt_tokens || 0,
+            tokensOut: data.usage?.completion_tokens || 0
+        };
     } catch (e) {
         clearTimeout(timer);
         throw e;
@@ -682,7 +873,11 @@ Reglas mandatorias:
         clearTimeout(timer);
         if (!res.ok) throw new Error(`OpenAI tutor error HTTP ${res.status}`);
         const data = await res.json();
-        return data.choices?.[0]?.message?.content?.trim();
+        return {
+            reply: data.choices?.[0]?.message?.content?.trim() || 'No tengo registro de ese procedimiento.',
+            tokensIn: data.usage?.prompt_tokens || 0,
+            tokensOut: data.usage?.completion_tokens || 0
+        };
     } catch (e) {
         clearTimeout(timer);
         throw e;
