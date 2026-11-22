@@ -37,8 +37,8 @@ export default function GeneralAgencyChat({token,api,ready,setupAvailable}) {
             <label className="grid gap-1">Tu mensaje<textarea className="min-h-24 w-full rounded-lg border border-crm-border bg-crm-bg p-3 text-crm-fg" required
                 maxLength={1500} value={message} onChange={event=>setMessage(event.target.value)} readOnly={sending} /></label>
             <div className="flex flex-wrap gap-2">
-                <button className="min-h-10 rounded-lg border border-crm-border px-3 font-semibold disabled:opacity-50" type="submit" disabled={!ready || sending || !message.trim()}>{sending ? 'Consultando OpenAI…' : 'Enviar consulta'}</button>
-                <button className="min-h-10 rounded-lg border border-crm-border px-3 disabled:opacity-50" type="button" disabled={sending || !turns.length}
+                <button className="min-h-10 rounded-lg border border-crm-border px-3 font-semibold text-crm-fg disabled:text-crm-fg-muted" type="submit" disabled={!ready || sending || !message.trim()}>{sending ? 'Consultando OpenAI…' : 'Enviar consulta'}</button>
+                <button className="min-h-10 rounded-lg border border-crm-border px-3 text-crm-fg disabled:text-crm-fg-muted" type="button" disabled={sending || !turns.length}
                     onClick={()=>{setTurns([]);setMessage('');setError('');}}>Nueva conversación</button>
             </div>
         </form>
