@@ -199,7 +199,7 @@ export async function syncLocalProgress(user, localData = {}) {
                     );
                     if (!alreadyPreserved) {
                         progress.errorReflections.push({
-                            _id: crypto.randomUUID(),
+                            _id: new mongoose.Types.ObjectId(),
                             situation: `${ref.situation || ref.quePaso || ref.titulo || ''} [Revisión concurrente multidispositivo]`,
                             actionTaken: ref.actionTaken || ref.quePaso || '',
                             difficultyEncountered: ref.difficultyEncountered || ref.informacion || '',
@@ -321,8 +321,9 @@ export async function saveErrorReflection(user, reflectionData) {
         }
     }
 
+    const refValidId = (reflectionData._id && mongoose.Types.ObjectId.isValid(reflectionData._id)) ? reflectionData._id : ((reflectionData.id && mongoose.Types.ObjectId.isValid(reflectionData.id)) ? reflectionData.id : new mongoose.Types.ObjectId());
     const newReflection = {
-        _id: reflectionData._id || reflectionData.id || crypto.randomUUID(),
+        _id: refValidId,
         situation: reflectionData.situation,
         actionTaken: reflectionData.actionTaken,
         difficultyEncountered: reflectionData.difficultyEncountered || '',
