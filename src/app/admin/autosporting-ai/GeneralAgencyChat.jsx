@@ -23,7 +23,7 @@ export default function GeneralAgencyChat({token,api,ready,setupAvailable}) {
         finally { setSending(false); }
     }
 
-    return <section className="rounded-xl border border-crm-border bg-crm-surface p-4 md:p-5" aria-labelledby="agency-chat-title">
+    return <section className="rounded-xl border border-crm-border bg-crm-surface p-4 text-crm-fg md:p-5" aria-labelledby="agency-chat-title">
         <h2 id="agency-chat-title" className="text-lg font-semibold">Chat general de la agencia</h2>
         <p className="mt-1 text-crm-fg-muted">Redactá borradores, resumí texto o hacé una consulta. El texto que escribís se envía a OpenAI. Usá únicamente datos ficticios en el piloto.</p>
         {!ready && <p className="mt-2 text-crm-fg-muted">Conexión de prueba pendiente.{setupAvailable && <> <a className="underline" href="#trade-workbook-title">Configurar conexión</a></>}</p>}
@@ -34,7 +34,7 @@ export default function GeneralAgencyChat({token,api,ready,setupAvailable}) {
             </li>)}
         </ol>
         <form onSubmit={send} className="mt-3 grid gap-2">
-            <label className="grid gap-1">Tu mensaje<textarea className="min-h-24 w-full rounded-lg border border-crm-border bg-crm-bg p-3" required
+            <label className="grid gap-1">Tu mensaje<textarea className="min-h-24 w-full rounded-lg border border-crm-border bg-crm-bg p-3 text-crm-fg" required
                 maxLength={1500} value={message} onChange={event=>setMessage(event.target.value)} readOnly={sending} /></label>
             <div className="flex flex-wrap gap-2">
                 <button className="min-h-10 rounded-lg border border-crm-border px-3 font-semibold disabled:opacity-50" type="submit" disabled={!ready || sending || !message.trim()}>{sending ? 'Consultando OpenAI…' : 'Enviar consulta'}</button>
