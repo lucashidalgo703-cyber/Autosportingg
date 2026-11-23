@@ -50,6 +50,7 @@ import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/Trea
 import TreasuryBoxDetailModal from '../../../components/crm/treasury/TreasuryBoxDetailModal';
 import TreasuryDiagnosticModal from '../../../components/crm/treasury/TreasuryDiagnosticModal';
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
+import PurchaseAnalyzer from '../../../components/crm/treasury/PurchaseAnalyzer';
 import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
 import TreasuryAuditLogTab from '../../../components/crm/treasury/TreasuryAuditLogTab';
 
@@ -162,7 +163,13 @@ export default function TesoreriaEstrategicaPage() {
     const [dolarBlueRate, setDolarBlueRate] = useState(null);
 
     // Navegación por pestañas
-    const [activeTab, setActiveTab] = useState('cajas'); // 'cajas' | 'cobros' | 'planificacion' | 'reglas' | 'cuentas' | 'cuotas' | 'auditoria'
+    const [activeTab, setActiveTab] = useState('cajas');
+    const sections = [
+        ['Resumen', ['cajas', 'cuentas']],
+        ['Movimientos', ['cobros', 'cuotas', 'auditoria']],
+        ['Decisiones', ['planificacion', 'reglas']]
+    ];
+    const activeSection = sections.find(([, tabs]) => tabs.includes(activeTab)); // 'cajas' | 'cobros' | 'planificacion' | 'reglas' | 'cuentas' | 'cuotas' | 'auditoria'
 
     // Modales
     const [isChangePinOpen, setIsChangePinOpen] = useState(false);
@@ -970,58 +977,30 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             </div>
 
-            {/* Pestañas de Navegación del Módulo */}
-            <div className="flex items-center gap-2 overflow-x-auto border-b border-crm-border pb-2 text-xs font-bold">
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('cajas')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cajas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    1. Cajas y Metas (8)
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('cobros')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'cobros' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    <ArrowDownRight size={13} /> 2. Distribuir Cobro {unassignedIncomeCards.length > 0 && <span className="rounded-full bg-purple-400/30 px-1.5 py-0.2 text-[10px] text-purple-200">{unassignedIncomeCards.length}</span>}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('planificacion')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'planificacion' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    <TrendingUp size={13} /> 3. Planificación y Compras
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('reglas')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'reglas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    <SlidersHorizontal size={13} /> 4. Reglas y Presupuesto
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('cuentas')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cuentas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    5. Cuentas y Fondos Reales
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('cuotas')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cuotas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    6. Cuotas Históricas
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('auditoria')}
-                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'auditoria' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
-                >
-                    7. Historial y Auditoría
-                </button>
-            </div>
+            <nav className="flex flex-wrap gap-2" aria-label="Espacios de Tesorería">
+                {sections.map(([label, tabs]) => <button key={label} type="button" onClick={() => setActiveTab(tabs[0])}
+                    aria-current={activeSection[0] === label ? 'page' : undefined}
+                    className={`rounded-xl px-4 py-2 font-bold ${activeSection[0] === label ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface'}`}>
+                    {label}
+                </button>)}
+            </nav>
+            <nav className="flex items-center gap-2 overflow-x-auto border-b border-crm-border pb-2 text-xs font-bold" aria-label="Funciones de Tesorería">
+                {activeSection[1].map(tab => {
+                    const labels = {
+                        cajas: 'Cajas y Metas', cuentas: 'Cuentas y Fondos Reales', cobros: 'Distribuir Cobro',
+                        cuotas: 'Cuotas Históricas', auditoria: 'Historial y Auditoría',
+                        planificacion: 'Planificación y Compras', reglas: 'Reglas y Presupuesto'
+                    };
+                    return <button key={tab} type="button" onClick={() => setActiveTab(tab)}
+                        aria-current={activeTab === tab ? 'page' : undefined}
+                        className={'rounded-xl px-4 py-2 whitespace-nowrap ' + (activeTab === tab ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white')}>
+                        {labels[tab]}
+                        {tab === 'cobros' && unassignedIncomeCards.length > 0 && ' (' + unassignedIncomeCards.length + ')'}
+                    </button>;
+                })}
+            </nav>
+
+            {activeSection[0] === 'Decisiones' && <PurchaseAnalyzer token={token} treasuryToken={treasuryToken} />}
 
             {/* PESTAÑA 1: CAJAS Y METAS (8 CAJAS COMPLETAS) */}
             {activeTab === 'cajas' && (

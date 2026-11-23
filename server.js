@@ -82,6 +82,7 @@ import { DailySummaryService } from './src/services/DailySummaryService.js';
 import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingService.js';
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries, resolveHistoricalRate } from './src/services/dolarService.js';
+import { registerPurchaseAnalyzer } from './src/routes/purchaseAnalyzerRoutes.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
 import { hasPermission, isSalesRole, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
@@ -11620,6 +11621,25 @@ const requireTreasuryPrivilegedRole = (req, res, next) => {
         message: 'Acceso restringido únicamente al propietario o administrador general.'
     });
 };
+
+const canEvaluatePurchase = user => user?.role === ROLES.OWNER || (
+    user?.role === ROLES.ADMIN && Boolean(user.id || user.userId) &&
+    (process.env.PURCHASE_ANALYZER_ADMIN_IDS || '').split(',').map(id => id.trim()).includes(String(user.id || user.userId))
+);
+registerPurchaseAnalyzer(app, {
+    authenticate: authenticateToken,
+    unlockTreasury: verifyTreasuryStrategicAuth,
+    isAuthorized: canEvaluatePurchase,
+    Car,
+    Quote,
+    Sale,
+    getDashboard: treasuryStrategicService.getTreasuryDashboardData
+});
+
+app.get('/api/admin/tesoreria-estrategica/purchase-analyzer-access', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ allowed: canEvaluatePurchase(req.user) });
+});
 
 // 1. Estado de seguridad (sin exponer PIN)
 app.get('/api/admin/tesoreria-estrategica/status', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
