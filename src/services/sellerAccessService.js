@@ -22,7 +22,8 @@ export function assertSellerAssignment(user, input = {}) {
 export function sellerVehicleDto(car) {
     if (!car || typeof car !== 'object' || car._bsontype || !car._id) return car;
     const fields = ['_id', 'brand', 'name', 'model', 'version', 'year', 'plateOrVin', 'price', 'currency',
-        'km', 'status', 'sold', 'images', 'imagePosition', 'imagePositions', 'fuel', 'condition', 'transmission', 'color'];
+        'km', 'status', 'sold', 'images', 'imagePosition', 'imagePositions', 'fuel', 'condition', 'transmission', 'color',
+        'hasManuals', 'hasDuplicateKeys', 'hasCricket', 'hasWheelWrench', 'hasOfficialServices'];
     const result = Object.fromEntries(fields.filter(key => car[key] !== undefined).map(key => [key, car[key]]));
     if (car.infoAuto) result.infoAuto = { modelName: car.infoAuto.modelName, versionName: car.infoAuto.versionName };
     return result;

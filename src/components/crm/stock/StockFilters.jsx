@@ -33,6 +33,7 @@ export default function StockFilters({
     const history = stockTab === 'historial';
     const negotiation = stockTab === 'negotiation';
     const rotacion = stockTab === 'rotacion';
+    const checklist = stockTab === 'checklist';
 
     const selectTab = id => {
         setFilterStatus('todos');
@@ -44,7 +45,8 @@ export default function StockFilters({
         ['historial', `Todos los estados (${counts.inventoryCount ?? 0})`],
         ['mandatos', `Mandatos (${counts.mandatos || 0})`],
         ...(canNegotiate ? [['negotiation', 'Negociación']] : []),
-        ...(canRotate ? [['rotacion', 'Rotación Estratégica']] : [])
+        ...(canRotate ? [['rotacion', 'Rotación Estratégica']] : []),
+        ['checklist', 'Control de Equipamiento']
     ];
 
     return (
@@ -52,7 +54,7 @@ export default function StockFilters({
             <div className="flex flex-wrap gap-x-5 border-b border-crm-border" aria-label="Secciones de Stock">
                 {tabsList.map(([id, label]) => {
                     const isActive = id === 'stock'
-                        ? !history && !mandates && !negotiation && !rotacion
+                        ? !history && !mandates && !negotiation && !rotacion && !checklist
                         : stockTab === id;
 
                     return (
@@ -72,7 +74,7 @@ export default function StockFilters({
                 })}
             </div>
 
-            {!negotiation && !rotacion && (
+            {!negotiation && !rotacion && !checklist && (
                 <>
                     {history && (
                         <div className="flex flex-wrap items-center gap-2" aria-label="Estado operativo">

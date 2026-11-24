@@ -51,6 +51,8 @@ const carSchema = new mongoose.Schema({
     hasManuals: { type: String, default: 'No' },
     hasDuplicateKeys: { type: String, default: 'No' },
     hasOfficialServices: { type: String, default: 'No' },
+    hasCricket: { type: String, default: 'No' },
+    hasWheelWrench: { type: String, default: 'No' },
     publishedOnML: { type: String, default: 'No' },
     publishedBy: { type: String },
     mlLink: { type: String },

@@ -158,7 +158,7 @@ export default function StockNegotiationPanel() {
         if (expanded.mode === 'plate') return row.canCompletePlate ? <PlateEditor row={row} onSave={plate => completePlate(row, plate)} onClose={() => setExpanded(null)}/> : null;
         const economicKey = JSON.stringify([row.id, row.ruleRevision, row.globalRuleRevision, row.floor, row.totalCost, row.publishedPrice, row.commission]);
         return expanded.mode === 'offer' ? <OfferSimulator key={economicKey} row={row} token={token} onClose={() => setExpanded(null)}/>
-            : canConfigure ? <StockNegotiationRuleEditor key={economicKey} rule={row.overrideRule} inheritedRule={data?.rule} vehicleTitle={titleOf(row)} onSave={rule => updateRule(row, rule)} onRemove={() => updateRule(row, null, true)} onCancel={() => setExpanded(null)}/> : null;
+            : canConfigure ? <StockNegotiationRuleEditor key={economicKey} row={row} rule={row.overrideRule} inheritedRule={data?.rule} vehicleTitle={titleOf(row)} onSave={rule => updateRule(row, rule)} onRemove={() => updateRule(row, null, true)} onCancel={() => setExpanded(null)}/> : null;
     };
     return <section className={styles.panel} aria-label="Negociación de stock" data-stock-negotiation>
         <div className={styles.intro}><div className={styles.introHeader}><h2><SlidersHorizontal size={21} aria-hidden="true"/>Negociación</h2><span className={styles.currency}>Contado · Consulta interna</span></div><p className={styles.muted}>Precios de referencia para unidades disponibles. La ganancia proyectada descuenta el costo total registrado y la comisión aplicable a cada precio.</p></div>

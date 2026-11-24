@@ -1,3 +1,4 @@
+import { getFixedExpensesForPeriod, createFixedExpense, updateFixedExpenseMonthlyInstance, updateMasterFixedExpense, deleteFixedExpense } from './src/services/fixedExpenseService.js';
 import { completeSaleAtomic, getSaleVehicleOptions, changeSaleVehicleAtomic } from './src/services/saleCompletionService.js';
 import { createReservationAtomic, updateReservationAtomic } from './src/services/reservationCreationService.js';
 import { enforceSellerAccess, sellerScope, sellerVehicleDto } from './src/services/sellerAccessService.js';
@@ -475,6 +476,111 @@ const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.AD
 // Routes
 app.use('/api/admin/quick-expenses', createQuickExpenseRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/buyer-portal', createAdminBuyerPortalRouter({ authenticate: authenticateToken }));
+// --- STOCK CHECKLIST (Equipamiento: Manual, Duplicado, Cricket, Llave de rueda, Service al día) ---
+
+app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const canAccess = [ROLES.OWNER, ROLES.ADMIN, ROLES.VENTAS, ROLES.ADMINISTRATIVO].includes(user?.role) ||
+            hasPermission(user, PERMISSIONS.STOCK_READ) ||
+            hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ) ||
+            hasPermission(user, PERMISSIONS.STOCK_SUBMIT);
+
+        if (!canAccess) {
+            return res.status(403).json({ message: 'No tenés permisos para consultar el checklist de stock.' });
+        }
+
+        await connectDB();
+        const cars = await Car.find({ status: { $ne: 'Cancelado' } })
+            .select('_id brand name model version year plateOrVin km color status coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices createdAt')
+            .sort({ status: 1, brand: 1, name: 1 })
+            .lean();
+
+        res.json({ ok: true, cars });
+    } catch (error) {
+        console.error('GET /api/admin/stock/checklist error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.patch('/api/admin/stock/checklist/:id', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const canAccess = [ROLES.OWNER, ROLES.ADMIN, ROLES.VENTAS, ROLES.ADMINISTRATIVO].includes(user?.role) ||
+            hasPermission(user, PERMISSIONS.STOCK_WRITE) ||
+            hasPermission(user, PERMISSIONS.STOCK_SUBMIT) ||
+            hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ);
+
+        if (!canAccess) {
+            return res.status(403).json({ message: 'No tenés permisos para modificar el checklist de equipamiento.' });
+        }
+
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) {
+            return res.status(404).json({ ok: false, message: 'Vehículo no encontrado.' });
+        }
+
+        const normalizeVal = (val) => {
+            if (val === undefined || val === null) return undefined;
+            const str = String(val).trim();
+            if (str.toLowerCase() === 'si' || str.toLowerCase() === 'sí') return 'Sí';
+            if (str.toLowerCase() === 'no') return 'No';
+            if (str.toLowerCase() === 'parcial') return 'Parcial';
+            return str;
+        };
+
+        const updates = {};
+        if (req.body.hasManuals !== undefined) {
+            car.hasManuals = normalizeVal(req.body.hasManuals);
+            updates.hasManuals = car.hasManuals;
+        }
+        if (req.body.hasDuplicateKeys !== undefined) {
+            car.hasDuplicateKeys = normalizeVal(req.body.hasDuplicateKeys);
+            updates.hasDuplicateKeys = car.hasDuplicateKeys;
+        }
+        if (req.body.hasCricket !== undefined) {
+            car.hasCricket = normalizeVal(req.body.hasCricket);
+            updates.hasCricket = car.hasCricket;
+        }
+        if (req.body.hasWheelWrench !== undefined) {
+            car.hasWheelWrench = normalizeVal(req.body.hasWheelWrench);
+            updates.hasWheelWrench = car.hasWheelWrench;
+        }
+        if (req.body.hasOfficialServices !== undefined) {
+            car.hasOfficialServices = normalizeVal(req.body.hasOfficialServices);
+            updates.hasOfficialServices = car.hasOfficialServices;
+        }
+
+        const userName = user?.name || user?.username || user?.email || 'Lucas';
+        if (!car.auditLog) car.auditLog = [];
+        car.auditLog.push({
+            action: 'CHECKLIST_EQUIPAMIENTO',
+            field: 'equipamiento',
+            details: `Checklist de equipamiento actualizado por ${userName}: ${JSON.stringify(updates)}`,
+            user: userName,
+            source: 'CRM_STOCK_CHECKLIST'
+        });
+
+        await car.save();
+
+        res.json({
+            ok: true,
+            car: {
+                _id: car._id,
+                hasManuals: car.hasManuals,
+                hasDuplicateKeys: car.hasDuplicateKeys,
+                hasCricket: car.hasCricket,
+                hasWheelWrench: car.hasWheelWrench,
+                hasOfficialServices: car.hasOfficialServices
+            }
+        });
+    } catch (error) {
+        console.error('PATCH /api/admin/stock/checklist/:id error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
 app.use('/api/admin/stock/negotiation', createStockNegotiationRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/vehicle-invoices', createVehicleInvoiceRouter({ authenticate: authenticateToken }));
 app.use('/api/vehicle-invoice-files', createVehicleInvoiceFileRouter());
@@ -13876,6 +13982,68 @@ app.post('/api/admin/finance/recurrences/generate-month', authenticateToken, req
     }
 });
 
+
+// --- GASTOS FIJOS MENSUALES ---
+
+app.get('/api/admin/finance/fixed-expenses', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const data = await getFixedExpensesForPeriod(req.query.period);
+        res.json({ ok: true, ...data });
+    } catch (error) {
+        console.error('GET /api/admin/finance/fixed-expenses error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/finance/fixed-expenses', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user?.username || req.user?.email || 'User';
+        const expense = await createFixedExpense(req.body, user);
+        res.status(201).json({ ok: true, expense });
+    } catch (error) {
+        console.error('POST /api/admin/finance/fixed-expenses error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.patch('/api/admin/finance/fixed-expenses/:id/month', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user?.username || req.user?.email || 'User';
+        const period = req.body.period || new Date().toISOString().slice(0, 7);
+        const result = await updateFixedExpenseMonthlyInstance(req.params.id, period, req.body, user);
+        res.json({ ok: true, ...result });
+    } catch (error) {
+        console.error('PATCH /api/admin/finance/fixed-expenses/:id/month error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.put('/api/admin/finance/fixed-expenses/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user?.username || req.user?.email || 'User';
+        const rule = await updateMasterFixedExpense(req.params.id, req.body, user);
+        res.json({ ok: true, rule });
+    } catch (error) {
+        console.error('PUT /api/admin/finance/fixed-expenses/:id error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.delete('/api/admin/finance/fixed-expenses/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user?.username || req.user?.email || 'User';
+        const result = await deleteFixedExpense(req.params.id, user);
+        res.json(result);
+    } catch (error) {
+        console.error('DELETE /api/admin/finance/fixed-expenses/:id error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
 
 // --- ARQUEOS Y CIERRE DE CAJA ---
 

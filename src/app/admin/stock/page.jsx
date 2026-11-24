@@ -28,6 +28,7 @@ import AvailableInventoryValues from '../../../components/crm/stock/AvailableInv
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
 import StrategicRotationPanel from '../../../components/crm/stock/rotation/StrategicRotationPanel';
 import VehicleIntakeModal from '../../../components/crm/stock/VehicleIntakeModal';
+import StockChecklistPanel from '../../../components/crm/stock/StockChecklistPanel';
 
 
 export default function AdminStockPage() {
@@ -40,15 +41,24 @@ export default function AdminStockPage() {
 
 function RestrictedStockPage({ user }) {
     const [intakeOpen, setIntakeOpen] = useState(false);
-    const [sellerTab, setSellerTab] = useState('prioridades'); // 'prioridades' | 'negotiation'
+    const [sellerTab, setSellerTab] = useState('checklist'); // 'checklist' | 'prioridades' | 'negotiation'
 
     return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
         <CrmPageHeader 
             title="Stock" 
-            subtitle={sellerTab === 'prioridades' ? 'Prioridades comerciales y directivas de stock autorizadas.' : 'Negociación de contado de las unidades disponibles.'} 
+            subtitle={sellerTab === 'checklist' ? 'Control de equipamiento, duplicados, manuales y services de cada unidad.' : sellerTab === 'prioridades' ? 'Prioridades comerciales y directivas de stock autorizadas.' : 'Negociación de contado de las unidades disponibles.'} 
             actions={hasPermission(user, PERMISSIONS.STOCK_SUBMIT) && <CrmButton type="button" onClick={() => setIntakeOpen(true)}><Plus size={16}/> Solicitar alta de vehículo</CrmButton>}
         />
         <div className="flex gap-4 border-b border-crm-border pb-2">
+            <button
+                type="button"
+                onClick={() => setSellerTab('checklist')}
+                className={`text-xs font-black uppercase tracking-wider pb-2 border-b-2 transition-all ${
+                    sellerTab === 'checklist' ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted hover:text-white'
+                }`}
+            >
+                Equipamiento / Checklist
+            </button>
             <button
                 type="button"
                 onClick={() => setSellerTab('prioridades')}
@@ -70,7 +80,9 @@ function RestrictedStockPage({ user }) {
                 </button>
             )}
         </div>
-        {sellerTab === 'prioridades' ? (
+        {sellerTab === 'checklist' ? (
+            <StockChecklistPanel />
+        ) : sellerTab === 'prioridades' ? (
             <StrategicRotationPanel />
         ) : canReadStockNegotiation(user) ? (
             <StockNegotiationPanel />
@@ -166,7 +178,7 @@ function StockInventoryPage() {
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
-        if (stockTab === 'negotiation') return;
+        if (stockTab === 'negotiation' || stockTab === 'checklist') return;
         refresh({
             page: pageNumber,
             limit: 20,
@@ -482,7 +494,7 @@ function StockInventoryPage() {
                     }
                 />
 
-                {canSeeCosts && !['mandatos', 'negotiation', 'rotacion'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} showCapitalHistory={canReadCapitalHistory(user)} />}
+                {canSeeCosts && !['mandatos', 'negotiation', 'rotacion', 'checklist'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} showCapitalHistory={canReadCapitalHistory(user)} />}
 
                 <div className="flex flex-col">
                     <StockFilters
@@ -506,10 +518,10 @@ function StockInventoryPage() {
                         canNegotiate={canNegotiate}
                     />
 
-                    {!['negotiation', 'rotacion'].includes(stockTab) && <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>}
+                    {!['negotiation', 'rotacion', 'checklist'].includes(stockTab) && <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>}
                     {stockTab === 'historial' && <p className="mb-3 text-xs text-crm-fg-muted">Consulta de fichas en todos los estados. Los totales de capital de arriba incluyen únicamente unidades disponibles.</p>}
 
-                    {stockTab === 'rotacion' ? <StrategicRotationPanel/> : stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : error ? (
+                    {stockTab === 'rotacion' ? <StrategicRotationPanel/> : stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : stockTab === 'checklist' ? <StockChecklistPanel/> : error ? (
                         <div role="alert" className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
                             <p className="m-0 text-sm font-bold text-crm-red">No se pudo cargar Stock</p>
                             <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>

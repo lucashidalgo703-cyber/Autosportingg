@@ -49,12 +49,14 @@ import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTa
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
 import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
 import ResumenGastosTab from '../../../components/crm/finance/tabs/ResumenGastosTab';
+import GastosFijosTab from '../../../components/crm/finance/tabs/GastosFijosTab';
 
 
 const FINANCE_TABS = [
     { id: 'resumen', icon: '📊', label: 'Resumen' },
     { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
     { id: 'resumen-gastos', icon: '📉', label: 'Resumen Gastos' },
+    { id: 'gastos-fijos', icon: '📌', label: 'Gastos Fijos' },
     { id: 'senas', icon: '🤝', label: 'Señas' },
     { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
     { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
@@ -570,6 +572,7 @@ function FinanzasPage() {
                                 onDelete={handleDeleteTransaction}
                             />
                         )}
+                        {activeTab === 'gastos-fijos' && <GastosFijosTab accounts={accounts} />}
                         {activeTab === 'pago-empresas' && (
                             <PagoEmpresasTab 
                                 allTransactions={allTransactions} 

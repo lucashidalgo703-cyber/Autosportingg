@@ -96,7 +96,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
         vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: '',
         location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
         ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
-        hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
+        hasManuals: 'No', hasDuplicateKeys: 'No', hasCricket: 'No', hasWheelWrench: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
         publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
         isSharedInvestment: false, investorName: '', investorPercentage: '',
         receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
@@ -120,6 +120,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                     owners: editingCar.owners || '1',
                     hasManuals: editingCar.hasManuals || 'No',
                     hasDuplicateKeys: editingCar.hasDuplicateKeys || 'No',
+                    hasCricket: editingCar.hasCricket || 'No',
+                    hasWheelWrench: editingCar.hasWheelWrench || 'No',
                     hasOfficialServices: editingCar.hasOfficialServices || 'No',
                     publishedOnML: editingCar.publishedOnML || 'No',
                     visibleEnWeb: editingCar.visibleEnWeb !== undefined ? editingCar.visibleEnWeb : true,
@@ -156,7 +158,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                     vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: '',
                     location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
                     ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
-                    hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
+                    hasManuals: 'No', hasDuplicateKeys: 'No', hasCricket: 'No', hasWheelWrench: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
                     publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
                     isSharedInvestment: false, investorName: '', investorPercentage: '',
                     receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
@@ -855,10 +857,12 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                                 <div><InputLabel>Manuales</InputLabel><SelectInput name="hasManuals" value={formData.hasManuals} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
                                 <div><InputLabel>Duplicado de llaves</InputLabel><SelectInput name="hasDuplicateKeys" value={formData.hasDuplicateKeys} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
-                                <div><InputLabel>Servicios oficiales</InputLabel><SelectInput name="hasOfficialServices" value={formData.hasOfficialServices} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
+                                <div><InputLabel>Cricket</InputLabel><SelectInput name="hasCricket" value={formData.hasCricket} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
+                                <div><InputLabel>Llave de rueda</InputLabel><SelectInput name="hasWheelWrench" value={formData.hasWheelWrench} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
+                                <div><InputLabel>Service al día</InputLabel><SelectInput name="hasOfficialServices" value={formData.hasOfficialServices} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
                             </div>
                         </section>
 
