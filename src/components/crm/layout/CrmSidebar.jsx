@@ -47,6 +47,7 @@ const menuGroups = [
         name: 'FINANZAS',
         items: [
             { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
+            { name: 'Cuotas', path: '/admin/cuotas', icon: '📆', prefetch: false },
             { name: 'Facturación / ARCA', path: '/admin/facturacion', icon: '🧾', prefetch: false },
             ...((process.env.NEXT_PUBLIC_AUTOSPORTING_FINANCIAL_PILOT === '1' || process.env.NEXT_PUBLIC_AUTOSPORTING_AI_OFFICIAL === '1') ? [{ name: 'AutoSporting AI', path: '/admin/autosporting-ai', icon: '◈', prefetch: false }] : []),
             { name: 'Capital mensual', path: '/admin/capital-mensual', icon: '📉', prefetch: false },
@@ -137,6 +138,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        if (itemName === 'Cuotas') return hasPermission(user, PERMISSIONS.CUOTAS_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Facturación / ARCA') return hasPermission(user, PERMISSIONS.FACTURACION_READ);
         if (itemName === 'Capital mensual') return hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_READ);
         if (itemName === 'Dictar gasto') return hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
