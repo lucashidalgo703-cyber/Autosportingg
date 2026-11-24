@@ -26,12 +26,15 @@ import {
     RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import CrmBadge from '../../../components/crm/ui/CrmBadge';
 import RescheduleInstallmentModal from '../../../components/crm/installments/RescheduleInstallmentModal';
 import CancelRescheduleModal from '../../../components/crm/installments/CancelRescheduleModal';
 import InstallmentHistoryModal from '../../../components/crm/installments/InstallmentHistoryModal';
 import TreasuryCollectAndDistributeModal from '../../../components/crm/treasury/TreasuryCollectAndDistributeModal';
 import PayInstallmentModal from '../../../components/crm/installments/PayInstallmentModal';
+import MonthlyPlanModal from '../../../components/crm/installments/MonthlyPlanModal';
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
 
 const MONTH_NAMES = [
@@ -40,6 +43,9 @@ const MONTH_NAMES = [
 ];
 
 export default function CuotasPage() {
+    const { user } = useAuth();
+    const canUpdatePlan = hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
+    const canCreatePlan = canUpdatePlan && hasPermission(user, PERMISSIONS.CLIENTES_READ);
     const today = useMemo(() => new Date(), []);
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1); // 1-12
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
@@ -63,6 +69,8 @@ export default function CuotasPage() {
     const [historyModalId, setHistoryModalId] = useState(null);
     const [collectModalItem, setCollectModalItem] = useState(null);
     const [directPayItem, setDirectPayItem] = useState(null);
+    const [monthlyPlanOpen, setMonthlyPlanOpen] = useState(false);
+    const [updatingPlanItem, setUpdatingPlanItem] = useState(null);
     const [isCreateInstallmentOpen, setIsCreateInstallmentOpen] = useState(false);
 
     // Cuentas de banco para pagos
@@ -152,6 +160,47 @@ export default function CuotasPage() {
         setSelectedYear(today.getFullYear());
     };
 
+    async function saveMonthlyPlan(input) {
+        const response = await fetch('/api/admin/installments/monthly-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('token') },
+            body: JSON.stringify(input)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'No se pudo crear el plan.');
+        const due = new Date(data.firstDueDate);
+        setMonthlyPlanOpen(false);
+        toast.success(data.count === 1 ? 'Cuota generada' : data.count + ' cuotas generadas');
+        const refreshCurrent = due.getUTCMonth() + 1 === selectedMonth && due.getUTCFullYear() === selectedYear &&
+            !showOnlyPrevPending && criteria === 'original' && statusFilter === 'todas' && !searchTerm;
+        setSelectedMonth(due.getUTCMonth() + 1);
+        setSelectedYear(due.getUTCFullYear());
+        setShowOnlyPrevPending(false);
+        setCriteria('original');
+        setStatusFilter('todas');
+        setSearchTerm('');
+        if (refreshCurrent) await fetchMonthlyData();
+    }
+
+    async function updateMonthlyPlanStatus(item) {
+        setUpdatingPlanItem(item._id);
+        try {
+            const response = await fetch('/api/admin/installments/' + item._id + '/monthly-plan-status', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ collected: !item.monthlyPlanCollected })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            toast.success(result.monthlyPlanCollected ? 'Cuota marcada como cobrada' : 'Cuota marcada como pendiente');
+            await fetchMonthlyData();
+        } catch (error) {
+            toast.error(error.message || 'No se pudo actualizar la cuota.');
+        } finally {
+            setUpdatingPlanItem(null);
+        }
+    }
+
     const isCurrentMonth = selectedMonth === (today.getMonth() + 1) && selectedYear === today.getFullYear() && !showOnlyPrevPending;
 
     // Manejador de registro de cobro
@@ -180,12 +229,18 @@ export default function CuotasPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {canCreatePlan && (
+                        <button onClick={() => setMonthlyPlanOpen(true)}
+                            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5">
+                            <Plus size={16} /> Generar cuotas
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsCreateInstallmentOpen(true)}
                         className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-500/10"
                     >
                         <Plus size={16} />
-                        <span>Nueva Cuota / Plan</span>
+                        <span>Cuota individual</span>
                     </button>
                     <button
                         onClick={fetchMonthlyData}
@@ -473,7 +528,7 @@ export default function CuotasPage() {
                                             <td className="py-3.5 px-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-white font-mono">
-                                                        #{item.installmentNumber || 1} de {item.totalInstallments || 1}
+                                                        #{item.installmentNumber || 1}{item.monthlyPlanId ? (item.monthlyPlanSize && ` de ${item.monthlyPlanSize}`) : ` de ${item.totalInstallments || 1}`}
                                                     </span>
                                                     {item.saleId?._id && (
                                                         <Link
@@ -552,6 +607,14 @@ export default function CuotasPage() {
                                             {/* Acciones por fila */}
                                             <td className="py-3.5 px-4 text-right">
                                                 <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                    {canUpdatePlan && item.monthlyPlanId && !item.linkedTransactions?.length &&
+                                                        ((item.monthlyPlanCollected && item.status === 'pagada_manual') || (!item.isFullyPaid && !item.isPartial)) && (
+                                                        <button onClick={() => updateMonthlyPlanStatus(item)} disabled={Boolean(updatingPlanItem)}
+                                                            title="Actualiza el estado sin registrar un movimiento de caja"
+                                                            className="rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
+                                                            {item.monthlyPlanCollected ? 'Marcar pendiente' : 'Marcar cobrada'}
+                                                        </button>
+                                                    )}
                                                     {/* Registrar pago */}
                                                     {item.mainStatus !== 'PAGADO' && (
                                                         <button
@@ -668,6 +731,7 @@ export default function CuotasPage() {
                 />
             )}
 
+            {monthlyPlanOpen && <MonthlyPlanModal onClose={() => setMonthlyPlanOpen(false)} onSave={saveMonthlyPlan} />}
             {/* Modal de Creación de Nueva Cuota */}
             <InstallmentModal
                 isOpen={isCreateInstallmentOpen}
