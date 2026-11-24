@@ -114,7 +114,7 @@ import { createAcademyRouter } from './src/routes/academyRoutes.js';
 import { createProfitabilityRouter } from './src/routes/profitabilityRoutes.js';
 import { createStockRotationRouter } from './src/routes/stockRotationRoutes.js';
 import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
-import { stockCurrency } from './src/utils/inventoryStock.js';
+import { isAvailableStock, stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
 
 const app = express();
@@ -496,10 +496,10 @@ app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
         }
 
         await connectDB();
-        const cars = await Car.find({ status: { $nin: ['Cancelado', 'Vendido'] }, sold: { $ne: true } })
-            .select('_id brand name model version year plateOrVin km color status coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices checklistPhotos createdAt')
+        const cars = (await Car.find({ sold: { $ne: true } })
+            .select('_id brand name model version year plateOrVin km color status sold coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices checklistPhotos createdAt')
             .sort({ status: 1, brand: 1, name: 1 })
-            .lean();
+            .lean()).filter(isAvailableStock);
 
         res.json({ ok: true, cars });
     } catch (error) {

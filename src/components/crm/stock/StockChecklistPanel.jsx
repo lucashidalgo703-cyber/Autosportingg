@@ -319,7 +319,7 @@ export default function StockChecklistPanel() {
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <CrmCard className="p-4 border border-zinc-800 bg-[#121215] flex items-center justify-between">
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Unidades en Stock</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Unidades disponibles</span>
                         <span className="text-2xl font-black text-white">{metrics.total}</span>
                     </div>
                     <div className="h-10 w-10 rounded-xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-zinc-300">
@@ -417,7 +417,7 @@ export default function StockChecklistPanel() {
             ) : filteredCars.length === 0 ? (
                 <div className="p-10 text-center text-zinc-400 bg-[#121215] border border-zinc-800 rounded-2xl">
                     <CarIcon size={36} className="mx-auto mb-2 opacity-30 text-zinc-400" />
-                    <p className="text-sm font-semibold text-white">No hay vehículos para mostrar</p>
+                    <p className="text-sm font-semibold text-white">No hay vehículos disponibles para mostrar</p>
                     <p className="text-xs text-zinc-500 mt-1">Verificá los filtros de búsqueda o actualizá el listado.</p>
                 </div>
             ) : (

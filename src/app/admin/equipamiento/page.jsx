@@ -9,7 +9,7 @@ export default function AdminEquipamientoPage() {
             <div className="flex min-w-0 flex-col gap-6">
                 <CrmPageHeader 
                     title="Equipamiento" 
-                    subtitle="Control de unidades en stock físico y registro de equipamiento recibido: manual, duplicado de llaves, cricket, llave de rueda y service al día." 
+                    subtitle="Control de vehículos disponibles y registro de equipamiento recibido: manual, duplicado de llaves, cricket, llave de rueda y service al día."
                 />
                 <StockChecklistPanel />
             </div>
