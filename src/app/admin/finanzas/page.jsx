@@ -572,7 +572,7 @@ function FinanzasPage() {
                                 onDelete={handleDeleteTransaction}
                             />
                         )}
-                        {activeTab === 'gastos-fijos' && <GastosFijosTab accounts={accounts} />}
+                        {activeTab === 'gastos-fijos' && <GastosFijosTab accounts={accounts} onUpdated={loadData} />}
                         {activeTab === 'pago-empresas' && (
                             <PagoEmpresasTab 
                                 allTransactions={allTransactions} 

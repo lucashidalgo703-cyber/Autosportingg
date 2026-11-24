@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 
 const monthlyInstanceSchema = new mongoose.Schema({
     period: { type: String, required: true }, // Format "YYYY-MM"
+    name: { type: String },
+    category: { type: String },
+    currency: { type: String, enum: ['ARS', 'USD'] },
     amount: { type: Number, required: true, min: 0 },
     status: {
         type: String,
@@ -28,6 +31,7 @@ const fixedExpenseSchema = new mongoose.Schema({
     defaultAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
     notes: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    startPeriod: { type: String },
     instances: [monthlyInstanceSchema],
     createdBy: { type: String },
     updatedBy: { type: String }

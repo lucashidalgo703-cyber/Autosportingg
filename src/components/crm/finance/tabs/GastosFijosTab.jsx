@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     CalendarDays,
     ChevronLeft,
@@ -21,6 +21,9 @@ import {
 import toast from 'react-hot-toast';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
+import { parseResponseSafe } from '../../../../utils/apiHelper';
 
 const MONTH_NAMES = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -41,7 +44,10 @@ const CATEGORIES = [
     'Otros'
 ];
 
-export default function GastosFijosTab({ accounts = [] }) {
+export default function GastosFijosTab({ accounts = [], onUpdated }) {
+    const { user } = useAuth();
+    const canWrite = hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
+    const requestId = useRef(0);
     const today = useMemo(() => new Date(), []);
     const [period, setPeriod] = useState(() => {
         const d = new Date();
@@ -49,7 +55,9 @@ export default function GastosFijosTab({ accounts = [] }) {
     });
 
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [data, setData] = useState({
+        period: null,
         summary: {
             ars: { total: 0, paid: 0, pending: 0 },
             usd: { total: 0, paid: 0, pending: 0 },
@@ -72,25 +80,28 @@ export default function GastosFijosTab({ accounts = [] }) {
     const [year, month] = useMemo(() => period.split('-').map(Number), [period]);
 
     const loadData = useCallback(async () => {
+        const currentRequest = ++requestId.current;
         setLoading(true);
+        setLoadError('');
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/admin/finance/fixed-expenses?period=${period}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const d = await res.json();
-            if (!res.ok) throw new Error(d.message || 'Error al cargar gastos fijos');
-            setData(d);
+            const d = await parseResponseSafe(res);
+            if (currentRequest === requestId.current) setData(d);
         } catch (err) {
-            console.error('Error cargando gastos fijos:', err);
-            toast.error(err.message || 'No se pudieron cargar los gastos fijos');
+            if (currentRequest === requestId.current) {
+                setLoadError(err.message || 'No se pudieron cargar los gastos fijos');
+            }
         } finally {
-            setLoading(false);
+            if (currentRequest === requestId.current) setLoading(false);
         }
     }, [period]);
 
     useEffect(() => {
         loadData();
+        return () => { requestId.current += 1; };
     }, [loadData]);
 
     // Navegación de meses
@@ -121,6 +132,7 @@ export default function GastosFijosTab({ accounts = [] }) {
 
     // Actualizar estado / monto mensual
     const handleUpdateMonth = async (ruleId, updates) => {
+        if (submitting || !canWrite) return false;
         setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
@@ -132,12 +144,17 @@ export default function GastosFijosTab({ accounts = [] }) {
                 },
                 body: JSON.stringify({ period, ...updates })
             });
-            const d = await res.json();
-            if (!res.ok) throw new Error(d.message || 'Error al actualizar');
+            await parseResponseSafe(res);
             toast.success('Gasto fijo actualizado');
             await loadData();
+            if (onUpdated) {
+                try { await onUpdated(); }
+                catch { toast.error('El gasto se guardó. Recargá Finanzas para actualizar los saldos.'); }
+            }
+            return true;
         } catch (err) {
             toast.error(err.message || 'No se pudo actualizar el gasto fijo');
+            return false;
         } finally {
             setSubmitting(false);
         }
@@ -151,8 +168,7 @@ export default function GastosFijosTab({ accounts = [] }) {
     // Anular gasto del mes
     const handleConfirmAnnul = async () => {
         if (!confirmAnnulItem) return;
-        await handleUpdateMonth(confirmAnnulItem.ruleId, { status: 'anulado' });
-        setConfirmAnnulItem(null);
+        if (await handleUpdateMonth(confirmAnnulItem.ruleId, { status: 'anulado' })) setConfirmAnnulItem(null);
     };
 
     // Restaurar anulado
@@ -162,7 +178,7 @@ export default function GastosFijosTab({ accounts = [] }) {
 
     // Eliminar / Desactivar regla permanente
     const handleConfirmDelete = async () => {
-        if (!confirmDeleteItem) return;
+        if (!confirmDeleteItem || submitting || !canWrite) return;
         setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
@@ -170,8 +186,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const d = await res.json();
-            if (!res.ok) throw new Error(d.message || 'Error al desactivar');
+            await parseResponseSafe(res);
             toast.success('Gasto fijo desactivado');
             setConfirmDeleteItem(null);
             await loadData();
@@ -197,14 +212,17 @@ export default function GastosFijosTab({ accounts = [] }) {
         });
     }, [data.items, statusFilter, searchTerm]);
 
+    const dataReady = !loading && !loadError && data.period === period;
+    const busy = submitting || isCreateOpen || Boolean(modifyMonthItem || payModalItem || confirmAnnulItem || confirmDeleteItem);
     const formatMoney = (amount, currency = 'ARS') => {
+        if (!dataReady) return '—';
         return `${currency === 'USD' ? 'USD' : '$'} ${Number(amount || 0).toLocaleString('es-AR')}`;
     };
 
     const isCurrent = period === `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
     return (
-        <div className="space-y-6">
+        <section className="space-y-6" aria-label="Gastos fijos mensuales" aria-busy={loading || submitting}>
             {/* Header de controles temporales y alta */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-crm-border bg-crm-surface p-4">
                 <div className="flex flex-wrap items-center gap-3">
@@ -212,6 +230,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <button
                             type="button"
                             onClick={handlePrevMonth}
+                            disabled={busy}
                             className="p-1.5 rounded-lg text-crm-fg-muted hover:text-white hover:bg-crm-surface transition cursor-pointer"
                             title="Mes anterior"
                         >
@@ -223,6 +242,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <button
                             type="button"
                             onClick={handleNextMonth}
+                            disabled={busy}
                             className="p-1.5 rounded-lg text-crm-fg-muted hover:text-white hover:bg-crm-surface transition cursor-pointer"
                             title="Mes siguiente"
                         >
@@ -234,6 +254,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <button
                             type="button"
                             onClick={handleResetCurrentMonth}
+                            disabled={busy}
                             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg hover:text-white transition"
                         >
                             Ir al mes actual
@@ -245,20 +266,20 @@ export default function GastosFijosTab({ accounts = [] }) {
                     </div>
                 </div>
 
-                <button
+                {canWrite && <button
                     type="button"
                     onClick={() => setIsCreateOpen(true)}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-crm-red-gradient px-4 py-2 text-xs font-black text-white shadow-crm-shadow-red transition hover:opacity-95 cursor-pointer shrink-0"
                 >
                     <Plus size={16} />
                     <span>Nuevo Gasto Fijo</span>
-                </button>
+                </button>}
             </div>
 
             {/* Tarjetas de Resumen (KPIs): Total, Pagado a la fecha, Pendiente a la fecha */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" aria-label="Totales del mes" aria-live="polite">
                 {/* 1. Total Gastos Fijos */}
-                <div className="rounded-2xl border border-crm-border bg-crm-surface p-5 flex flex-col justify-between">
+                <div data-fixed-expense-summary="total" className="rounded-2xl border border-crm-border bg-crm-surface p-5 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-black uppercase tracking-wider text-crm-fg-muted">
                             Total Gastos Fijos (Mes)
@@ -271,22 +292,22 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <div className="text-2xl font-black text-white font-mono">
                             {formatMoney(data.summary?.ars?.total, 'ARS')}
                         </div>
-                        {data.summary?.usd?.total > 0 && (
+                        {dataReady && data.summary?.usd?.total > 0 && (
                             <div className="text-sm font-bold text-neutral-400 font-mono mt-0.5">
                                 + {formatMoney(data.summary?.usd?.total, 'USD')}
                             </div>
                         )}
                         <p className="text-xs text-crm-fg-subtle mt-2">
-                            {data.summary?.counts?.total || 0} gastos fijos presupuestados para {MONTH_NAMES[month - 1]}.
+                            {dataReady ? `${data.summary?.counts?.total || 0} gastos fijos presupuestados para ${MONTH_NAMES[month - 1]}.` : loadError ? 'Totales no disponibles.' : 'Cargando totales del mes…'}
                         </p>
                     </div>
                 </div>
 
                 {/* 2. Total Pagado a la fecha */}
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/10 p-5 flex flex-col justify-between">
+                <div data-fixed-expense-summary="paid" className="rounded-2xl border border-emerald-500/30 bg-emerald-950/10 p-5 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                            Total Pagado a la Fecha
+                            Total pagado del mes
                         </span>
                         <div className="h-8 w-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
                             <CheckCircle2 size={16} />
@@ -296,22 +317,22 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <div className="text-2xl font-black text-emerald-400 font-mono">
                             {formatMoney(data.summary?.ars?.paid, 'ARS')}
                         </div>
-                        {data.summary?.usd?.paid > 0 && (
+                        {dataReady && data.summary?.usd?.paid > 0 && (
                             <div className="text-sm font-bold text-emerald-300/80 font-mono mt-0.5">
                                 + {formatMoney(data.summary?.usd?.paid, 'USD')}
                             </div>
                         )}
                         <p className="text-xs text-emerald-200/70 mt-2">
-                            {data.summary?.counts?.paid || 0} de {data.summary?.counts?.total || 0} gastos saldados.
+                            {dataReady ? `${data.summary?.counts?.paid || 0} de ${data.summary?.counts?.total || 0} gastos saldados.` : '—'}
                         </p>
                     </div>
                 </div>
 
                 {/* 3. Total Pendiente a la fecha */}
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-950/10 p-5 flex flex-col justify-between">
+                <div data-fixed-expense-summary="pending" className="rounded-2xl border border-amber-500/30 bg-amber-950/10 p-5 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-black uppercase tracking-wider text-amber-400">
-                            Total Pendiente a la Fecha
+                            Total pendiente del mes
                         </span>
                         <div className="h-8 w-8 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
                             <Clock size={16} />
@@ -321,13 +342,13 @@ export default function GastosFijosTab({ accounts = [] }) {
                         <div className="text-2xl font-black text-amber-400 font-mono">
                             {formatMoney(data.summary?.ars?.pending, 'ARS')}
                         </div>
-                        {data.summary?.usd?.pending > 0 && (
+                        {dataReady && data.summary?.usd?.pending > 0 && (
                             <div className="text-sm font-bold text-amber-300/80 font-mono mt-0.5">
                                 + {formatMoney(data.summary?.usd?.pending, 'USD')}
                             </div>
                         )}
                         <p className="text-xs text-amber-200/70 mt-2">
-                            {data.summary?.counts?.pending || 0} obligaciones por abonar.
+                            {dataReady ? `${data.summary?.counts?.pending || 0} obligaciones por abonar.` : '—'}
                         </p>
                     </div>
                 </div>
@@ -337,7 +358,7 @@ export default function GastosFijosTab({ accounts = [] }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                     {[
-                        { id: 'todos', label: 'Todos', count: data.summary?.counts?.total },
+                        { id: 'todos', label: 'Todos', count: (data.summary?.counts?.total || 0) + (data.summary?.counts?.annulled || 0) },
                         { id: 'pendiente', label: 'Pendientes', count: data.summary?.counts?.pending },
                         { id: 'pagado', label: 'Pagados', count: data.summary?.counts?.paid },
                         { id: 'anulado', label: 'Anulados', count: data.summary?.counts?.annulled }
@@ -346,13 +367,14 @@ export default function GastosFijosTab({ accounts = [] }) {
                             key={tab.id}
                             type="button"
                             onClick={() => setStatusFilter(tab.id)}
+                            aria-pressed={statusFilter === tab.id}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                                 statusFilter === tab.id
                                     ? 'bg-crm-surface-raised text-white border border-crm-border shadow-sm'
                                     : 'text-crm-fg-muted hover:text-white hover:bg-crm-surface'
                             }`}
                         >
-                            {tab.label} {tab.count !== undefined ? `(${tab.count})` : ''}
+                            {tab.label} {dataReady && tab.count !== undefined ? `(${tab.count})` : ''}
                         </button>
                     ))}
                 </div>
@@ -362,6 +384,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                     <input
                         type="text"
                         placeholder="Buscar por nombre o rubro..."
+                        aria-label="Buscar gastos fijos"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full bg-crm-surface border border-crm-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-crm-red transition"
@@ -371,7 +394,12 @@ export default function GastosFijosTab({ accounts = [] }) {
 
             {/* Tabla de Gastos Fijos */}
             <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
-                {loading ? (
+                {loadError ? (
+                    <div role="alert" className="space-y-3 p-8 text-center text-sm text-crm-fg">
+                        <p>{loadError}</p>
+                        <button type="button" onClick={loadData} className="rounded-lg border border-crm-border px-4 py-2">Reintentar</button>
+                    </div>
+                ) : !dataReady ? (
                     <div className="flex h-56 items-center justify-center">
                         <div className="flex flex-col items-center gap-2">
                             <div className="h-7 w-7 animate-spin rounded-full border-2 border-crm-border border-t-crm-red" />
@@ -389,7 +417,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                                 ? 'No se encontraron resultados para los filtros seleccionados.'
                                 : `No hay gastos fijos registrados en ${MONTH_NAMES[month - 1]}. Creá tu primer gasto fijo con el botón superior.`}
                         </p>
-                        {statusFilter === 'todos' && !searchTerm && (
+                        {canWrite && statusFilter === 'todos' && !searchTerm && (
                             <button
                                 type="button"
                                 onClick={() => setIsCreateOpen(true)}
@@ -496,7 +524,7 @@ export default function GastosFijosTab({ accounts = [] }) {
 
                                             {/* Acciones */}
                                             <td className="py-3 px-4 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
+                                                {canWrite && <div className="flex items-center justify-end gap-1.5" inert={submitting || undefined}>
                                                     {isPending && (
                                                         <>
                                                             <button
@@ -553,11 +581,11 @@ export default function GastosFijosTab({ accounts = [] }) {
                                                         type="button"
                                                         onClick={() => setConfirmDeleteItem(item)}
                                                         className="p-1 rounded-lg text-crm-fg-subtle hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
-                                                        title="Eliminar gasto fijo de forma permanente"
+                                                        title="Desactivar gasto fijo para los próximos meses"
                                                     >
                                                         <Trash2 size={13} />
                                                     </button>
-                                                </div>
+                                                </div>}
                                             </td>
                                         </tr>
                                     );
@@ -574,6 +602,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                     isOpen={isCreateOpen}
                     onClose={() => setIsCreateOpen(false)}
                     accounts={accounts}
+                    period={period}
                     onCreated={loadData}
                 />
             )}
@@ -586,8 +615,7 @@ export default function GastosFijosTab({ accounts = [] }) {
                     item={modifyMonthItem}
                     period={period}
                     onSave={async (newAmount, notes) => {
-                        await handleUpdateMonth(modifyMonthItem.ruleId, { amount: newAmount, notes });
-                        setModifyMonthItem(null);
+                        if (await handleUpdateMonth(modifyMonthItem.ruleId, { amount: newAmount, notes })) setModifyMonthItem(null);
                     }}
                 />
             )}
@@ -600,14 +628,14 @@ export default function GastosFijosTab({ accounts = [] }) {
                     item={payModalItem}
                     accounts={accounts}
                     onConfirm={async (payData) => {
-                        await handleUpdateMonth(payModalItem.ruleId, {
+                        const saved = await handleUpdateMonth(payModalItem.ruleId, {
                             status: 'pagado',
                             paidAt: payData.paidAt,
                             paymentMethod: payData.paymentMethod,
                             accountId: payData.accountId,
                             registerMovement: payData.registerMovement
                         });
-                        setPayModalItem(null);
+                        if (saved) setPayModalItem(null);
                     }}
                 />
             )}
@@ -629,18 +657,19 @@ export default function GastosFijosTab({ accounts = [] }) {
                 onClose={() => setConfirmDeleteItem(null)}
                 onConfirm={handleConfirmDelete}
                 title="Desactivar Gasto Fijo"
-                message={`¿Estás seguro de que deseas desactivar definitivamente "${confirmDeleteItem?.name}"? Ya no se generará en los meses siguientes.`}
+                message={`¿Deseás desactivar "${confirmDeleteItem?.name}"? Se conservarán los registros existentes y dejará de generarse en nuevos meses.`}
                 confirmText="Desactivar"
+                isConfirmDisabled={submitting}
                 isDestructive={true}
             />
-        </div>
+        </section>
     );
 }
 
 // ----------------------------------------------------
 // Modal 1: Crear Nuevo Gasto Fijo
 // ----------------------------------------------------
-function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) {
+function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated, period }) {
     const [name, setName] = useState('');
     const [category, setCategory] = useState(CATEGORIES[0]);
     const [amount, setAmount] = useState('');
@@ -654,6 +683,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
         if (!name.trim()) return toast.error('Ingresá el nombre del gasto fijo');
         if (!amount || Number(amount) <= 0) return toast.error('Ingresá un monto mayor a 0');
 
@@ -667,6 +697,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    period,
                     name: name.trim(),
                     category,
                     amount: Number(amount),
@@ -676,11 +707,10 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                     notes: notes.trim()
                 })
             });
-            const d = await res.json();
-            if (!res.ok) throw new Error(d.message || 'Error al guardar');
+            await parseResponseSafe(res);
             toast.success('Gasto fijo creado con éxito');
             onClose();
-            onCreated();
+            await onCreated();
         } catch (err) {
             toast.error(err.message || 'No se pudo crear');
         } finally {
@@ -691,16 +721,19 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
     const compatibleAccounts = accounts.filter(a => a.currency === currency && a.isActive !== false);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
+        <div role="dialog" aria-modal="true" aria-label="Nuevo gasto fijo mensual" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
                 <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
                     <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
                             <Plus size={16} />
                         </div>
-                        <h3 className="text-base font-black text-white">Nuevo Gasto Fijo Mensual</h3>
+                        <div>
+                            <h3 className="text-base font-black text-white">Nuevo Gasto Fijo Mensual</h3>
+                            <p className="text-xs text-crm-fg-muted">Desde el período {period}</p>
+                        </div>
                     </div>
-                    <button type="button" onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
+                    <button type="button" aria-label="Cerrar" disabled={submitting} onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
                         <X size={18} />
                     </button>
                 </div>
@@ -712,6 +745,8 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                         </label>
                         <input
                             type="text"
+                            aria-label="Nombre del gasto"
+                            autoFocus
                             required
                             placeholder="Ej: Alquiler Salón, Luz Edesur, Internet Fibertel..."
                             value={name}
@@ -739,6 +774,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                             </label>
                             <input
                                 type="number"
+                                aria-label="Día de vencimiento"
                                 required
                                 min="1"
                                 max="31"
@@ -756,6 +792,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                             </label>
                             <input
                                 type="number"
+                                aria-label="Monto base"
                                 required
                                 min="0.01"
                                 step="0.01"
@@ -771,6 +808,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                             </label>
                             <select
                                 value={currency}
+                                aria-label="Moneda"
                                 onChange={(e) => { setCurrency(e.target.value); setDefaultAccountId(''); }}
                                 className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-crm-red transition cursor-pointer"
                             >
@@ -812,6 +850,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
                     <div className="pt-3 border-t border-crm-border flex justify-end gap-2">
                         <button
                             type="button"
+                            disabled={submitting}
                             onClick={onClose}
                             className="px-4 py-2 rounded-xl text-xs font-bold text-crm-fg-muted hover:text-white hover:bg-crm-surface-raised transition cursor-pointer"
                         >
@@ -835,7 +874,7 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated }) 
 // Modal 2: Modificar Importe de este Mes
 // ----------------------------------------------------
 function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
-    const [amount, setAmount] = useState(item?.amount || '');
+    const [amount, setAmount] = useState(item?.amount ?? '');
     const [notes, setNotes] = useState(item?.notes || '');
     const [submitting, setSubmitting] = useState(false);
 
@@ -843,7 +882,7 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!amount || Number(amount) < 0) return toast.error('Ingresá un monto válido');
+        if (amount === '' || !Number.isFinite(Number(amount)) || Number(amount) < 0) return toast.error('Ingresá un monto válido');
         setSubmitting(true);
         try {
             await onSave(Number(amount), notes);
@@ -853,8 +892,8 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
+        <div role="dialog" aria-modal="true" aria-label="Modificar importe del mes" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+            <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
                 <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
                     <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
@@ -865,7 +904,7 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
                             <p className="text-[11px] text-crm-fg-subtle">Período {period}</p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
+                    <button type="button" aria-label="Cerrar" disabled={submitting} onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
                         <X size={18} />
                     </button>
                 </div>
@@ -883,8 +922,9 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
                         </label>
                         <input
                             type="number"
+                            aria-label="Monto para este mes"
                             required
-                            min="0.01"
+                            min="0"
                             step="0.01"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
@@ -934,7 +974,7 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
 function PayFixedExpenseModal({ isOpen, onClose, item, accounts = [], onConfirm }) {
     const [accountId, setAccountId] = useState(item?.accountId || '');
     const [paymentMethod, setPaymentMethod] = useState('efectivo');
-    const [registerMovement, setRegisterMovement] = useState(true);
+    const [registerMovement, setRegisterMovement] = useState(Boolean(item?.accountId));
     const [submitting, setSubmitting] = useState(false);
 
     if (!isOpen || !item) return null;
@@ -943,6 +983,9 @@ function PayFixedExpenseModal({ isOpen, onClose, item, accounts = [], onConfirm 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (registerMovement && !compatibleAccounts.some(account => account._id === accountId)) {
+            return toast.error('Seleccioná una cuenta de egreso');
+        }
         setSubmitting(true);
         try {
             await onConfirm({
@@ -957,8 +1000,8 @@ function PayFixedExpenseModal({ isOpen, onClose, item, accounts = [], onConfirm 
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
+        <div role="dialog" aria-modal="true" aria-label="Pagar gasto fijo" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+            <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
                 <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
                     <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
@@ -969,7 +1012,7 @@ function PayFixedExpenseModal({ isOpen, onClose, item, accounts = [], onConfirm 
                             <p className="text-[11px] text-crm-fg-subtle">{item.name}</p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
+                    <button type="button" aria-label="Cerrar" disabled={submitting} onClick={onClose} className="text-crm-fg-muted hover:text-white transition">
                         <X size={18} />
                     </button>
                 </div>
@@ -1001,10 +1044,12 @@ function PayFixedExpenseModal({ isOpen, onClose, item, accounts = [], onConfirm 
                             </label>
                             <select
                                 value={accountId}
+                                aria-label="Cuenta de egreso"
+                                required
                                 onChange={(e) => setAccountId(e.target.value)}
                                 className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-crm-red transition cursor-pointer"
                             >
-                                <option value="">-- Sin cuenta (solo marcar pagado) --</option>
+                                <option value="">Seleccioná una cuenta</option>
                                 {compatibleAccounts.map(a => (
                                     <option key={a._id} value={a._id}>
                                         {a.name} (Saldo: {a.currency} {Number(a.balance).toLocaleString('es-AR')})

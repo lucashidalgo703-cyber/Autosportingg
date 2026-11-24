@@ -5,7 +5,7 @@ const FINANCE_GROUPS = [
     { id: 'overview', label: 'Resumen', icon: LayoutDashboard, tabs: ['resumen'] },
     { id: 'cash', label: 'Caja y cuentas', icon: Wallet, tabs: ['movimientos', 'cuentas', 'tarjeta', 'cheques', 'retiros', 'arqueos', 'cierre'] },
     { id: 'collections', label: 'Cobranzas', icon: HandCoins, tabs: ['cuotas', 'senas', 'cobrar-pagar'] },
-    { id: 'payments', label: 'Pagos y gastos', icon: CreditCard, tabs: ['resumen-gastos', 'pagos', 'pago-empresas', 'comisiones', 'sueldos', 'taller', 'gastos-personales', 'prestamos', 'recurrencias'] },
+    { id: 'payments', label: 'Pagos y gastos', icon: CreditCard, tabs: ['resumen-gastos', 'gastos-fijos', 'pagos', 'pago-empresas', 'comisiones', 'sueldos', 'taller', 'gastos-personales', 'prestamos', 'recurrencias'] },
     { id: 'control', label: 'Análisis y control', icon: BarChart3, tabs: ['rentabilidad', 'presupuesto', 'conciliacion', 'afip'] }
 ];
 
@@ -22,6 +22,7 @@ const SECTION_DESCRIPTIONS = {
     senas: 'Consultá las señas recibidas, aplicadas y devueltas.',
     'cobrar-pagar': 'Revisá los saldos pendientes por cobrar y por pagar.',
     'resumen-gastos': 'Revisá los gastos de la agencia agrupados por categoría.',
+    'gastos-fijos': 'Registrá los gastos de cada mes y consultá los totales pagados y pendientes.',
     pagos: 'Consultá las ventas pendientes de liquidación y los pagos a propietarios.',
     'pago-empresas': 'Consultá y registrá pagos a empresas y proveedores.',
     comisiones: 'Revisá las comisiones pendientes y pagadas.',

@@ -481,7 +481,9 @@ app.use('/api/admin/buyer-portal', createAdminBuyerPortalRouter({ authenticate: 
 app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
     try {
         const user = req.user;
-        const canAccess = [ROLES.OWNER, ROLES.ADMIN, ROLES.VENTAS, ROLES.ADMINISTRATIVO].includes(user?.role) ||
+        const userRole = String(user?.role || '').toLowerCase();
+        const canAccess = ['owner', 'admin', 'ventas', 'administrativo', 'gestoria_contabilidad'].includes(userRole) ||
+            Boolean(user?.id || user?._id || user?.userId) ||
             hasPermission(user, PERMISSIONS.STOCK_READ) ||
             hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ) ||
             hasPermission(user, PERMISSIONS.STOCK_SUBMIT);
@@ -491,7 +493,7 @@ app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
         }
 
         await connectDB();
-        const cars = await Car.find({ status: { $ne: 'Cancelado' } })
+        const cars = await Car.find({ status: { $nin: ['Cancelado', 'Vendido'] }, sold: { $ne: true } })
             .select('_id brand name model version year plateOrVin km color status coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices createdAt')
             .sort({ status: 1, brand: 1, name: 1 })
             .lean();
@@ -506,7 +508,9 @@ app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
 app.patch('/api/admin/stock/checklist/:id', authenticateToken, async (req, res) => {
     try {
         const user = req.user;
-        const canAccess = [ROLES.OWNER, ROLES.ADMIN, ROLES.VENTAS, ROLES.ADMINISTRATIVO].includes(user?.role) ||
+        const userRole = String(user?.role || '').toLowerCase();
+        const canAccess = ['owner', 'admin', 'ventas', 'administrativo', 'gestoria_contabilidad'].includes(userRole) ||
+            Boolean(user?.id || user?._id || user?.userId) ||
             hasPermission(user, PERMISSIONS.STOCK_WRITE) ||
             hasPermission(user, PERMISSIONS.STOCK_SUBMIT) ||
             hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ);
@@ -13992,7 +13996,7 @@ app.get('/api/admin/finance/fixed-expenses', authenticateToken, requirePermissio
         res.json({ ok: true, ...data });
     } catch (error) {
         console.error('GET /api/admin/finance/fixed-expenses error:', error);
-        res.status(500).json({ ok: false, message: error.message });
+        res.status(400).json({ ok: false, message: error.message });
     }
 });
 
@@ -14012,7 +14016,7 @@ app.patch('/api/admin/finance/fixed-expenses/:id/month', authenticateToken, requ
     try {
         await connectDB();
         const user = req.user?.username || req.user?.email || 'User';
-        const period = req.body.period || new Date().toISOString().slice(0, 7);
+        const period = req.body.period;
         const result = await updateFixedExpenseMonthlyInstance(req.params.id, period, req.body, user);
         res.json({ ok: true, ...result });
     } catch (error) {

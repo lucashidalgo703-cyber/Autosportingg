@@ -2,19 +2,23 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-    Search, CheckCircle2, XCircle, AlertCircle, RefreshCw, 
-    Car as CarIcon, Key, BookOpen, Wrench, ShieldCheck, Check, Sparkles
+    Search, CheckCircle2, AlertCircle, RefreshCw, 
+    Car as CarIcon, Key, BookOpen, Wrench, ShieldCheck, Check, Sparkles,
+    X, CheckSquare, Square
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
+import CrmButton from '../ui/CrmButton';
 
-const ITEMS = [
-    { key: 'hasManuals', label: 'Manual', icon: BookOpen, desc: 'Manual del usuario / garantía' },
-    { key: 'hasDuplicateKeys', label: 'Duplicado', icon: Key, desc: 'Segunda llave / copia' },
-    { key: 'hasCricket', label: 'Cricket', icon: CarIcon, desc: 'Gato / cricket de auxilio' },
-    { key: 'hasWheelWrench', label: 'Llave de rueda', icon: Wrench, desc: 'Llave cruz o tubo de rueda' },
-    { key: 'hasOfficialServices', label: 'Service al día', icon: ShieldCheck, desc: 'Mantenimiento / libreta al día' }
+const CHECKLIST_ITEMS = [
+    { key: 'hasManuals', label: 'Manual del usuario', shortLabel: 'Manual', icon: BookOpen, desc: 'Manual del fabricante y garantía original' },
+    { key: 'hasDuplicateKeys', label: 'Duplicado de llaves', shortLabel: 'Duplicado', icon: Key, desc: 'Segunda llave o copia original' },
+    { key: 'hasCricket', label: 'Cricket', shortLabel: 'Cricket', icon: CarIcon, desc: 'Cricket / gato elevador de auxilio' },
+    { key: 'hasWheelWrench', label: 'Llave de rueda', shortLabel: 'Llave de rueda', icon: Wrench, desc: 'Llave cruz o tubo para tuercas de rueda' },
+    { key: 'hasOfficialServices', label: 'Service al día', shortLabel: 'Service al día', icon: ShieldCheck, desc: 'Historial de mantenimiento o libreta oficial al día' }
 ];
+
+const isItemChecked = (val) => val === 'Sí' || val === 'Si' || val === true;
 
 export default function StockChecklistPanel() {
     const [cars, setCars] = useState([]);
@@ -23,11 +27,28 @@ export default function StockChecklistPanel() {
     const [filterStatus, setFilterStatus] = useState('todos'); // 'todos' | 'completos' | 'incompletos'
     const [savingId, setSavingId] = useState(null);
 
+    // Modal para editar vehículo clickeado
+    const [modalCar, setModalCar] = useState(null);
+    const [modalForm, setModalForm] = useState({
+        hasManuals: false,
+        hasDuplicateKeys: false,
+        hasCricket: false,
+        hasWheelWrench: false,
+        hasOfficialServices: false
+    });
+    const [modalSaving, setModalSaving] = useState(false);
+
+    const getBaseUrl = () => {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        return process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+    };
+
     const fetchCars = useCallback(async () => {
         setLoading(true);
         try {
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const res = await fetch('/api/admin/stock/checklist', {
+            const baseUrl = getBaseUrl();
+            const res = await fetch(`${baseUrl}/api/admin/stock/checklist`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {}
             });
             const data = await res.json();
@@ -49,76 +70,30 @@ export default function StockChecklistPanel() {
     }, [fetchCars]);
 
     const isComplete = (car) => {
-        return (
-            (car.hasManuals === 'Sí' || car.hasManuals === 'Si') &&
-            (car.hasDuplicateKeys === 'Sí' || car.hasDuplicateKeys === 'Si') &&
-            (car.hasCricket === 'Sí' || car.hasCricket === 'Si') &&
-            (car.hasWheelWrench === 'Sí' || car.hasWheelWrench === 'Si') &&
-            (car.hasOfficialServices === 'Sí' || car.hasOfficialServices === 'Si')
-        );
+        return CHECKLIST_ITEMS.every(item => isItemChecked(car[item.key]));
     };
 
-    const countCompletedItems = (car) => {
-        let count = 0;
-        if (car.hasManuals === 'Sí' || car.hasManuals === 'Si') count++;
-        if (car.hasDuplicateKeys === 'Sí' || car.hasDuplicateKeys === 'Si') count++;
-        if (car.hasCricket === 'Sí' || car.hasCricket === 'Si') count++;
-        if (car.hasWheelWrench === 'Sí' || car.hasWheelWrench === 'Si') count++;
-        if (car.hasOfficialServices === 'Sí' || car.hasOfficialServices === 'Si') count++;
-        return count;
+    const countCompleted = (car) => {
+        return CHECKLIST_ITEMS.filter(item => isItemChecked(car[item.key])).length;
     };
 
-    const handleToggleField = async (carId, fieldKey, currentValue) => {
-        // Ciclo: No -> Sí -> Parcial -> No
-        let nextValue = 'Sí';
-        if (currentValue === 'Sí' || currentValue === 'Si') {
-            nextValue = 'No';
-        } else if (currentValue === 'No') {
-            nextValue = 'Sí';
-        } else if (currentValue === 'Parcial') {
-            nextValue = 'No';
-        }
-
-        // Actualización optimista
-        setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: nextValue } : c));
-        setSavingId(carId);
-
-        try {
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const res = await fetch(`/api/admin/stock/checklist/${carId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify({ [fieldKey]: nextValue })
-            });
-            const data = await res.json();
-            if (!data.ok) {
-                // Revertir
-                setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: currentValue } : c));
-                toast.error(data.message || 'No se pudo guardar el cambio.');
-            }
-        } catch (err) {
-            console.error('handleToggleField error:', err);
-            setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: currentValue } : c));
-            toast.error('Error de conexión al actualizar.');
-        } finally {
-            setSavingId(null);
-        }
-    };
-
-    const handleSelectField = async (carId, fieldKey, nextValue) => {
+    // Toggle rápido directo en la fila/tarjeta
+    const handleQuickToggle = async (carId, fieldKey, e) => {
+        if (e) e.stopPropagation();
         const car = cars.find(c => c._id === carId);
-        const prevValue = car ? car[fieldKey] : 'No';
-        if (prevValue === nextValue) return;
+        if (!car) return;
 
+        const currentChecked = isItemChecked(car[fieldKey]);
+        const nextValue = currentChecked ? 'No' : 'Sí';
+
+        // Optimista
         setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: nextValue } : c));
         setSavingId(carId);
 
         try {
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const res = await fetch(`/api/admin/stock/checklist/${carId}`, {
+            const baseUrl = getBaseUrl();
+            const res = await fetch(`${baseUrl}/api/admin/stock/checklist/${carId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -128,15 +103,74 @@ export default function StockChecklistPanel() {
             });
             const data = await res.json();
             if (!data.ok) {
-                setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: prevValue } : c));
-                toast.error(data.message || 'No se pudo guardar el cambio.');
+                setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: car[fieldKey] } : c));
+                toast.error(data.message || 'No se pudo guardar.');
             }
         } catch (err) {
-            console.error('handleSelectField error:', err);
-            setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: prevValue } : c));
-            toast.error('Error de conexión al actualizar.');
+            console.error('handleQuickToggle error:', err);
+            setCars(prev => prev.map(c => c._id === carId ? { ...c, [fieldKey]: car[fieldKey] } : c));
+            toast.error('Error de red al actualizar.');
         } finally {
             setSavingId(null);
+        }
+    };
+
+    // Abrir modal al hacer click en el auto
+    const handleOpenModal = (car) => {
+        setModalCar(car);
+        setModalForm({
+            hasManuals: isItemChecked(car.hasManuals),
+            hasDuplicateKeys: isItemChecked(car.hasDuplicateKeys),
+            hasCricket: isItemChecked(car.hasCricket),
+            hasWheelWrench: isItemChecked(car.hasWheelWrench),
+            hasOfficialServices: isItemChecked(car.hasOfficialServices)
+        });
+    };
+
+    const handleModalToggle = (fieldKey) => {
+        setModalForm(prev => ({
+            ...prev,
+            [fieldKey]: !prev[fieldKey]
+        }));
+    };
+
+    const handleSaveModal = async (e) => {
+        e.preventDefault();
+        if (!modalCar) return;
+        setModalSaving(true);
+
+        const payload = {
+            hasManuals: modalForm.hasManuals ? 'Sí' : 'No',
+            hasDuplicateKeys: modalForm.hasDuplicateKeys ? 'Sí' : 'No',
+            hasCricket: modalForm.hasCricket ? 'Sí' : 'No',
+            hasWheelWrench: modalForm.hasWheelWrench ? 'Sí' : 'No',
+            hasOfficialServices: modalForm.hasOfficialServices ? 'Sí' : 'No'
+        };
+
+        try {
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const baseUrl = getBaseUrl();
+            const res = await fetch(`${baseUrl}/api/admin/stock/checklist/${modalCar._id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.ok) {
+                setCars(prev => prev.map(c => c._id === modalCar._id ? { ...c, ...payload } : c));
+                toast.success(`Equipamiento guardado: ${modalCar.brand} ${modalCar.name || modalCar.model}`);
+                setModalCar(null);
+            } else {
+                toast.error(data.message || 'Error al guardar el equipamiento.');
+            }
+        } catch (err) {
+            console.error('handleSaveModal error:', err);
+            toast.error('Error de conexión al guardar.');
+        } finally {
+            setModalSaving(false);
         }
     };
 
@@ -175,22 +209,22 @@ export default function StockChecklistPanel() {
                             <Sparkles size={18} />
                         </span>
                         <h2 className="text-lg font-bold text-white tracking-wide">
-                            Control de Equipamiento y Entrega de Stock
+                            Control de Equipamiento de Unidades en Stock
                         </h2>
                     </div>
                     <p className="text-xs text-crm-fg-muted mt-1">
-                        Carga y verificación física de unidades: manuales, duplicado de llaves, cricket, llave de rueda y service al día.
+                        Hacé click en cualquier vehículo para abrir su ficha y tildar el equipamiento recibido (manual, duplicado, cricket, llave de rueda y service al día).
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={fetchCars}
                         disabled={loading}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-crm-fg-muted bg-crm-surface-raised hover:text-white border border-crm-border rounded-xl transition-colors disabled:opacity-50"
-                        title="Actualizar lista"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-crm-fg-muted bg-crm-surface-raised hover:text-white border border-crm-border rounded-xl transition-colors disabled:opacity-50"
+                        title="Actualizar lista de vehículos"
                     >
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                        Actualizar
+                        Actualizar Stock
                     </button>
                 </div>
             </div>
@@ -199,7 +233,7 @@ export default function StockChecklistPanel() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <CrmCard className="p-4 border border-crm-border/60 bg-crm-surface flex items-center justify-between">
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted block">Total Unidades en Stock</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted block">Vehículos en Stock</span>
                         <span className="text-2xl font-black text-white">{metrics.total}</span>
                     </div>
                     <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
@@ -209,7 +243,7 @@ export default function StockChecklistPanel() {
 
                 <CrmCard className="p-4 border border-emerald-500/20 bg-crm-surface flex items-center justify-between">
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">100% Equipadas (5/5)</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">Equipamiento Completo (5/5)</span>
                         <span className="text-2xl font-black text-emerald-400">{metrics.completos}</span>
                     </div>
                     <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -219,7 +253,7 @@ export default function StockChecklistPanel() {
 
                 <CrmCard className="p-4 border border-amber-500/20 bg-crm-surface flex items-center justify-between">
                     <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">Con Faltantes / A Revisar</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">Con Faltantes / A Tildar</span>
                         <span className="text-2xl font-black text-amber-400">{metrics.incompletos}</span>
                     </div>
                     <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
@@ -278,38 +312,39 @@ export default function StockChecklistPanel() {
                 </div>
             </div>
 
-            {/* Listado de unidades */}
+            {/* Listado de unidades en Stock */}
             {loading ? (
                 <div className="p-12 text-center text-crm-fg-muted flex flex-col items-center justify-center gap-3">
                     <RefreshCw className="animate-spin text-purple-400" size={24} />
-                    <p className="text-sm">Cargando inventario de vehículos...</p>
+                    <p className="text-sm">Cargando vehículos de stock...</p>
                 </div>
             ) : filteredCars.length === 0 ? (
                 <div className="p-8 text-center text-crm-fg-muted bg-crm-surface border border-crm-border rounded-2xl">
                     <CarIcon size={32} className="mx-auto mb-2 opacity-40 text-purple-400" />
-                    <p className="text-sm font-semibold text-white">No se encontraron vehículos</p>
-                    <p className="text-xs text-crm-fg-muted mt-1">Probá cambiando el criterio de búsqueda o el filtro.</p>
+                    <p className="text-sm font-semibold text-white">No hay vehículos para mostrar</p>
+                    <p className="text-xs text-crm-fg-muted mt-1">Verificá los filtros de búsqueda o actualizá el inventario.</p>
                 </div>
             ) : (
                 <div className="space-y-3">
                     {filteredCars.map((car) => {
-                        const completeCount = countCompletedItems(car);
+                        const completeCount = countCompleted(car);
                         const isAllComplete = completeCount === 5;
                         const photoUrl = (Array.isArray(car.images) && car.images[0]) || car.coverImage || null;
 
                         return (
                             <div
                                 key={car._id}
-                                className={`p-4 rounded-xl border transition-all ${
+                                onClick={() => handleOpenModal(car)}
+                                className={`group p-4 rounded-xl border transition-all cursor-pointer ${
                                     isAllComplete
-                                        ? 'bg-crm-surface/80 border-emerald-500/25 hover:border-emerald-500/40'
-                                        : 'bg-crm-surface border-crm-border hover:border-purple-500/40'
+                                        ? 'bg-crm-surface/85 border-emerald-500/30 hover:border-emerald-500/60 hover:bg-crm-surface'
+                                        : 'bg-crm-surface border-crm-border hover:border-purple-500/60 hover:bg-crm-surface-raised'
                                 } shadow-sm`}
                             >
                                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                    {/* Ficha básica del auto */}
-                                    <div className="flex items-center gap-3.5 min-w-[280px]">
-                                        <div className="h-14 w-20 rounded-lg overflow-hidden bg-crm-bg flex-shrink-0 border border-crm-border/70 flex items-center justify-center">
+                                    {/* Ficha básica del auto (solo stock, sin precios ni números de toma) */}
+                                    <div className="flex items-center gap-3.5 min-w-[260px]">
+                                        <div className="h-14 w-20 rounded-lg overflow-hidden bg-crm-bg flex-shrink-0 border border-crm-border/70 flex items-center justify-center group-hover:border-purple-500/40 transition-colors">
                                             {photoUrl ? (
                                                 <img src={photoUrl} alt={car.brand} className="h-full w-full object-cover" />
                                             ) : (
@@ -318,7 +353,7 @@ export default function StockChecklistPanel() {
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-bold text-white text-sm truncate">
+                                                <span className="font-bold text-white text-sm truncate group-hover:text-purple-300 transition-colors">
                                                     {car.brand} {car.name || car.model}
                                                 </span>
                                                 {car.year && (
@@ -329,7 +364,7 @@ export default function StockChecklistPanel() {
                                                 <span className="font-mono text-[11px] font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 rounded">
                                                     {car.plateOrVin || 'S/D'}
                                                 </span>
-                                                {car.km !== undefined && (
+                                                {car.km !== undefined && Number(car.km) > 0 && (
                                                     <span className="text-[11px] text-crm-fg-muted">
                                                         {Number(car.km).toLocaleString('es-AR')} km
                                                     </span>
@@ -339,72 +374,52 @@ export default function StockChecklistPanel() {
                                                         · {car.color}
                                                     </span>
                                                 )}
+                                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                                                    {car.status || 'Disponible'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Checklist de los 5 items */}
+                                    {/* Checklist interactivo con tildes (Click para tildar directo o click en auto para modal) */}
                                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 flex-grow">
-                                        {ITEMS.map((item) => {
+                                        {CHECKLIST_ITEMS.map((item) => {
                                             const Icon = item.icon;
-                                            const val = car[item.key] || 'No';
-                                            const isYes = val === 'Sí' || val === 'Si';
-                                            const isPartial = val === 'Parcial';
+                                            const checked = isItemChecked(car[item.key]);
 
                                             return (
-                                                <div
+                                                <button
                                                     key={item.key}
-                                                    className="p-2 rounded-lg bg-crm-bg/80 border border-crm-border flex flex-col justify-between gap-1.5"
+                                                    type="button"
+                                                    disabled={savingId === car._id}
+                                                    onClick={(e) => handleQuickToggle(car._id, item.key, e)}
+                                                    className={`p-2 rounded-lg border text-left flex items-center justify-between gap-1.5 transition-all ${
+                                                        checked
+                                                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25'
+                                                            : 'bg-crm-bg/70 border-crm-border text-crm-fg-muted hover:border-crm-border-strong hover:text-white'
+                                                    }`}
+                                                    title={`${item.desc} (Click para ${checked ? 'destildar' : 'tildar'})`}
                                                 >
-                                                    <div className="flex items-center justify-between gap-1">
-                                                        <div className="flex items-center gap-1 min-w-0">
-                                                            <Icon size={12} className={isYes ? 'text-emerald-400' : isPartial ? 'text-amber-400' : 'text-crm-fg-muted'} />
-                                                            <span className="text-[11px] font-semibold text-white truncate" title={item.desc}>
-                                                                {item.label}
-                                                            </span>
-                                                        </div>
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <Icon size={13} className={checked ? 'text-emerald-400' : 'text-crm-fg-muted'} />
+                                                        <span className="text-[11px] font-semibold truncate">
+                                                            {item.shortLabel}
+                                                        </span>
                                                     </div>
-
-                                                    {/* Botón selector tipo chip interactivo */}
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            type="button"
-                                                            disabled={savingId === car._id}
-                                                            onClick={() => handleToggleField(car._id, item.key, val)}
-                                                            className={`w-full py-1 px-1.5 rounded text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
-                                                                isYes
-                                                                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30'
-                                                                    : isPartial
-                                                                    ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
-                                                                    : 'bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
-                                                            }`}
-                                                            title={`Click para alternar: ${item.desc}`}
-                                                        >
-                                                            {isYes ? (
-                                                                <>
-                                                                    <Check size={11} className="stroke-[3]" />
-                                                                    <span>Sí</span>
-                                                                </>
-                                                            ) : isPartial ? (
-                                                                <>
-                                                                    <AlertCircle size={11} />
-                                                                    <span>Parcial</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <XCircle size={11} />
-                                                                    <span>No</span>
-                                                                </>
-                                                            )}
-                                                        </button>
+                                                    <div className="flex-shrink-0">
+                                                        {checked ? (
+                                                            <CheckSquare size={14} className="text-emerald-400 stroke-[2.5]" />
+                                                        ) : (
+                                                            <Square size={14} className="text-crm-fg-muted/60" />
+                                                        )}
                                                     </div>
-                                                </div>
+                                                </button>
                                             );
                                         })}
                                     </div>
 
-                                    {/* Badge de progreso total (ej: 4/5) */}
-                                    <div className="flex lg:flex-col items-center justify-between lg:justify-center flex-shrink-0 min-w-[70px] text-right">
+                                    {/* Progreso total y botón para abrir modal */}
+                                    <div className="flex items-center justify-between lg:justify-end gap-3 flex-shrink-0">
                                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
                                             isAllComplete
                                                 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
@@ -414,14 +429,129 @@ export default function StockChecklistPanel() {
                                         }`}>
                                             {completeCount} / 5
                                         </span>
-                                        <span className="text-[10px] text-crm-fg-muted mt-0.5 hidden lg:block">
-                                            {isAllComplete ? 'Completo' : 'Incompleto'}
+                                        <span className="text-[11px] font-medium text-purple-400 group-hover:text-purple-300 underline underline-offset-2">
+                                            Cargar »
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Modal para tildar equipamiento al hacer click en el vehículo */}
+            {modalCar && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl relative">
+                        {/* Header del modal */}
+                        <div className="flex items-start justify-between gap-3 border-b border-crm-border pb-4">
+                            <div>
+                                <span className="text-[11px] font-bold text-purple-400 uppercase tracking-wider block">
+                                    Cargar Equipamiento de Unidad
+                                </span>
+                                <h3 className="text-lg font-bold text-white mt-0.5">
+                                    {modalCar.brand} {modalCar.name || modalCar.model} {modalCar.year ? `(${modalCar.year})` : ''}
+                                </h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="font-mono text-xs font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 rounded">
+                                        {modalCar.plateOrVin || 'S/D'}
+                                    </span>
+                                    {modalCar.km !== undefined && Number(modalCar.km) > 0 && (
+                                        <span className="text-xs text-crm-fg-muted">
+                                            · {Number(modalCar.km).toLocaleString('es-AR')} km
+                                        </span>
+                                    )}
+                                    {modalCar.color && (
+                                        <span className="text-xs text-crm-fg-muted capitalize">
+                                            · {modalCar.color}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setModalCar(null)}
+                                className="text-crm-fg-muted hover:text-white p-1 rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Formulario con los 5 checkboxes grandes */}
+                        <form onSubmit={handleSaveModal} className="space-y-3">
+                            <p className="text-xs text-crm-fg-muted">
+                                Marcá con un tilde cada elemento con el que cuenta esta unidad:
+                            </p>
+
+                            <div className="space-y-2">
+                                {CHECKLIST_ITEMS.map((item) => {
+                                    const Icon = item.icon;
+                                    const checked = modalForm[item.key];
+
+                                    return (
+                                        <div
+                                            key={item.key}
+                                            onClick={() => handleModalToggle(item.key)}
+                                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                                                checked
+                                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-white'
+                                                    : 'bg-crm-bg/80 border-crm-border text-crm-fg-muted hover:border-crm-border-strong hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                                                    checked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-crm-surface text-crm-fg-muted'
+                                                }`}>
+                                                    <Icon size={16} />
+                                                </div>
+                                                <div>
+                                                    <span className={`text-sm font-bold block ${checked ? 'text-white' : 'text-crm-fg'}`}>
+                                                        {item.label}
+                                                    </span>
+                                                    <span className="text-[11px] text-crm-fg-muted block">
+                                                        {item.desc}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                                    checked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-crm-surface text-crm-fg-muted'
+                                                }`}>
+                                                    {checked ? 'Cuenta con él' : 'No tiene'}
+                                                </span>
+                                                {checked ? (
+                                                    <CheckSquare size={20} className="text-emerald-400 stroke-[2.5]" />
+                                                ) : (
+                                                    <Square size={20} className="text-crm-fg-muted/60" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Botones de acción del modal */}
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-crm-border">
+                                <CrmButton
+                                    type="button"
+                                    variant="ghost"
+                                    disabled={modalSaving}
+                                    onClick={() => setModalCar(null)}
+                                >
+                                    Cancelar
+                                </CrmButton>
+                                <CrmButton
+                                    type="submit"
+                                    disabled={modalSaving}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                                >
+                                    {modalSaving ? 'Guardando…' : 'Guardar Equipamiento'}
+                                </CrmButton>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

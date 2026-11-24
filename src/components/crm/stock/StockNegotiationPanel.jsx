@@ -42,16 +42,26 @@ function PendingFields({ values }) {
     const issues = issuesOf(values);
     return issues.length ? <ul className={styles.pendingList}>{issues.map((message, index) => <li key={message + index}>{message}</li>)}</ul> : null;
 }
-function PriceValue({ step, currency, shared, missing = false }) {
+function PriceValue({ step, currency, shared, missing = false, isOwner = true }) {
     if (!step) return <span className={styles.muted}>{missing ? 'Dato pendiente' : '—'}</span>;
-    return <><strong className={styles.price}>{money(step.price, currency)}</strong><span className={styles.profit}>{shared ? 'Ganancia total' : 'Ganancia'}: {money(step.profit, currency)}</span>{shared && <span className={styles.agency}>AutoSporting: {money(step.agencyProfit, currency)}</span>}</>;
+    return (
+        <>
+            <strong className={styles.price}>{money(step.price, currency)}</strong>
+            {isOwner && (
+                <>
+                    <span className={styles.profit}>{shared ? 'Ganancia total' : 'Ganancia'}: {money(step.profit, currency)}</span>
+                    {shared && <span className={styles.agency}>AutoSporting: {money(step.agencyProfit, currency)}</span>}
+                </>
+            )}
+        </>
+    );
 }
-function VehicleInfo({ row }) {
+function VehicleInfo({ row, isOwner = true }) {
     const issues = issuesOf(row.missingFields);
     return <><strong className={styles.vehicleTitle}>{titleOf(row)}</strong><p className={styles.vehicleMeta}><span className={styles.plate}>Dominio: {row.plate || 'Sin dominio'}</span>{row.ownership?.label ? ' · ' + row.ownership.label : ''}</p>
         {row.status === 'below_floor' && <span className={styles.badge}><ShieldAlert size={14} aria-hidden="true"/>Revisar precio publicado</span>}
         {issues.length > 0 && <PendingFields values={row.missingFields}/>}
-        <p className={styles.vehicleMeta}>{row.ruleSource === 'vehicle' ? 'Mínimo particular' : row.ruleSource === 'general' ? 'Mínimo general' : 'Mínimo pendiente'}{row.effectiveRule ? ': ' + ruleLabel(row.effectiveRule) : ''}</p>
+        {isOwner && <p className={styles.vehicleMeta}>{row.ruleSource === 'vehicle' ? 'Mínimo particular' : row.ruleSource === 'general' ? 'Mínimo general' : 'Mínimo pendiente'}{row.effectiveRule ? ': ' + ruleLabel(row.effectiveRule) : ''}</p>}
     </>;
 }
 function PlateEditor({ row, onSave, onClose }) {
@@ -109,7 +119,8 @@ function OfferSimulator({ row, token, onClose }) {
 }
 
 export default function StockNegotiationPanel() {
-    const { token, loading: authLoading } = useAuth();
+    const { user, token, loading: authLoading } = useAuth();
+    const isOwner = user?.role === 'owner';
     const desktop = useSyncExternalStore(subscribeViewport, desktopSnapshot, serverSnapshot);
     const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(1), [version, setVersion] = useState(0);
     const [snapshot, setSnapshot] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
@@ -152,25 +163,25 @@ export default function StockNegotiationPanel() {
             throw cause;
         }
     };
-    const rowActions = row => <div className={styles.rowActions}><CrmButton type="button" variant="secondary" onClick={() => expand(row, 'offer')} disabled={actionsLoading}><Calculator size={15} aria-hidden="true"/>Probar oferta</CrmButton>{row.canCompletePlate && <CrmButton type="button" variant="secondary" onClick={() => expand(row, 'plate')} disabled={actionsLoading}><PencilLine size={14} aria-hidden="true"/>Completar dominio</CrmButton>}{canConfigure && <CrmButton type="button" variant="ghost" onClick={() => expand(row, 'rule')} disabled={actionsLoading}><Settings2 size={14} aria-hidden="true"/>Mínimo de la unidad</CrmButton>}</div>;
+    const rowActions = row => <div className={styles.rowActions}>{isOwner && <CrmButton type="button" variant="secondary" onClick={() => expand(row, 'offer')} disabled={actionsLoading}><Calculator size={15} aria-hidden="true"/>Probar oferta</CrmButton>}{row.canCompletePlate && <CrmButton type="button" variant="secondary" onClick={() => expand(row, 'plate')} disabled={actionsLoading}><PencilLine size={14} aria-hidden="true"/>Completar dominio</CrmButton>}{canConfigure && <CrmButton type="button" variant="ghost" onClick={() => expand(row, 'rule')} disabled={actionsLoading}><Settings2 size={14} aria-hidden="true"/>Mínimo de la unidad</CrmButton>}</div>;
     const rowExpanded = row => {
         if (expanded?.id !== row.id) return null;
         if (expanded.mode === 'plate') return row.canCompletePlate ? <PlateEditor row={row} onSave={plate => completePlate(row, plate)} onClose={() => setExpanded(null)}/> : null;
         const economicKey = JSON.stringify([row.id, row.ruleRevision, row.globalRuleRevision, row.floor, row.totalCost, row.publishedPrice, row.commission]);
-        return expanded.mode === 'offer' ? <OfferSimulator key={economicKey} row={row} token={token} onClose={() => setExpanded(null)}/>
+        return expanded.mode === 'offer' ? (isOwner ? <OfferSimulator key={economicKey} row={row} token={token} onClose={() => setExpanded(null)}/> : null)
             : canConfigure ? <StockNegotiationRuleEditor key={economicKey} row={row} rule={row.overrideRule} inheritedRule={data?.rule} vehicleTitle={titleOf(row)} onSave={rule => updateRule(row, rule)} onRemove={() => updateRule(row, null, true)} onCancel={() => setExpanded(null)}/> : null;
     };
     return <section className={styles.panel} aria-label="Negociación de stock" data-stock-negotiation>
-        <div className={styles.intro}><div className={styles.introHeader}><h2><SlidersHorizontal size={21} aria-hidden="true"/>Negociación</h2><span className={styles.currency}>Contado · Consulta interna</span></div><p className={styles.muted}>Precios de referencia para unidades disponibles. La ganancia proyectada descuenta el costo total registrado y la comisión aplicable a cada precio.</p></div>
+        <div className={styles.intro}><div className={styles.introHeader}><h2><SlidersHorizontal size={21} aria-hidden="true"/>Negociación</h2><span className={styles.currency}>Contado · Consulta interna</span></div><p className={styles.muted}>{isOwner ? 'Precios de referencia para unidades disponibles. La ganancia proyectada descuenta el costo total registrado y la comisión aplicable a cada precio.' : 'Precios de referencia autorizados para unidades disponibles. Consultá los precios de cierre y piso autorizado.'}</p></div>
         <div className={styles.controls}><label className={styles.search}>Buscar unidad disponible<div className={styles.searchBox}><Search size={17} aria-hidden="true"/><input className={styles.input} value={search} onChange={event => setSearch(event.target.value)} type="search" placeholder="Marca, modelo o dominio" autoComplete="off"/></div></label><CrmButton type="button" variant="secondary" disabled={loading} onClick={refresh}><RefreshCw size={16} aria-hidden="true"/>Actualizar</CrmButton></div>
-        {data && <div className={styles.ruleSummary}><div><strong>Mínimo general: {ruleLabel(data.rule)}</strong><p className={styles.muted}>Las excepciones por vehículo tienen prioridad.{data.exchangeRate?.rate ? ` · Tipo de cambio guardado en el CRM: $ ${Number(data.exchangeRate.rate).toLocaleString('es-AR')} por USD${rateDate(data.exchangeRate.lastFetchedAt || data.exchangeRate.publishedAt) ? ' · ' + rateDate(data.exchangeRate.lastFetchedAt || data.exchangeRate.publishedAt) : ''}.` : ''}</p></div>{canConfigure && <CrmButton type="button" variant="secondary" disabled={loading} onClick={() => setGlobalEditor(value => !value)}><Settings2 size={15} aria-hidden="true"/>{globalEditor ? 'Cerrar configuración' : 'Configurar mínimo general'}</CrmButton>}</div>}
+        {data && isOwner && <div className={styles.ruleSummary}><div><strong>Mínimo general: {ruleLabel(data.rule)}</strong><p className={styles.muted}>Las excepciones por vehículo tienen prioridad.{data.exchangeRate?.rate ? ` · Tipo de cambio guardado en el CRM: $ ${Number(data.exchangeRate.rate).toLocaleString('es-AR')} por USD${rateDate(data.exchangeRate.lastFetchedAt || data.exchangeRate.publishedAt) ? ' · ' + rateDate(data.exchangeRate.lastFetchedAt || data.exchangeRate.publishedAt) : ''}.` : ''}</p></div>{canConfigure && <CrmButton type="button" variant="secondary" disabled={loading} onClick={() => setGlobalEditor(value => !value)}><Settings2 size={15} aria-hidden="true"/>{globalEditor ? 'Cerrar configuración' : 'Configurar mínimo general'}</CrmButton>}</div>}
         {globalEditor && canConfigure && <StockNegotiationRuleEditor key={'general:' + data?.ruleRevision} rule={data?.rule} onSave={rule => updateRule(null, rule)} onCancel={() => setGlobalEditor(false)}/>}
         {ruleNotice && <p className={styles.ruleSummary} role="status">{ruleNotice}</p>}
         {error && <div className={styles.error} role="alert"><p>{error}</p><CrmButton type="button" variant="secondary" onClick={refresh}>Reintentar consulta</CrmButton></div>}
         {loading && <p className={styles.loading} role="status">Consultando precios y ganancias…</p>}
         {!loading && data && !items.length && <p className={styles.empty}>{query ? 'No encontramos unidades disponibles para esa búsqueda.' : 'No hay unidades disponibles para negociar.'}</p>}
-        {items.length > 0 && <>{desktop ? <div className={`${styles.tableWrap} ${loading ? styles.loadingOverlay : ''}`}><table className={styles.table}><thead><tr><th scope="col">Unidad disponible</th>{columns.map(([name, label]) => <th scope="col" key={name}>{label}</th>)}<th scope="col">Probar / configurar</th></tr></thead><tbody>{items.map(row => <Fragment key={row.id}><tr data-negotiation-row={row.id}><td><VehicleInfo row={row}/><div className={styles.context}><span>Costo total: {money(row.totalCost, row.currency)}</span>{row.commission && <span>{commissionText(row.commission, row.currency)}</span>}</div></td>{columns.map(([name]) => <td key={name} className={name === 'floor' ? styles.floor : undefined}><PriceValue step={row.steps?.find(step => step.key === name)} currency={row.currency} shared={Boolean(row.ownership?.shared)} missing={row.status === 'pending' && ['published', 'floor'].includes(name)}/></td>)}<td>{rowActions(row)}</td></tr>{expanded?.id === row.id && <tr className={styles.expanded}><td colSpan={6}><div className={styles.expandedContent}>{rowExpanded(row)}</div></td></tr>}</Fragment>)}</tbody></table></div>
-            : <div className={`${styles.mobileList} ${loading ? styles.loadingOverlay : ''}`}>{items.map(row => <article className={styles.card} key={row.id} data-negotiation-card={row.id}><header className={styles.cardHead}><div><VehicleInfo row={row}/></div><span className={styles.currency}>{row.currency || 'Moneda pendiente'}</span></header><div className={styles.context}><span>Costo total: {money(row.totalCost, row.currency)}</span>{row.commission && <span>{commissionText(row.commission, row.currency)}</span>}</div><div className={styles.priceGrid}>{columns.filter(([name]) => row.steps?.some(step => step.key === name) || ['published', 'floor'].includes(name) && row.status === 'pending').map(([name, label]) => <div key={name} className={`${styles.priceTile} ${name === 'floor' ? styles.floor : ''}`}><span className={styles.priceLabel}>{label}</span><PriceValue step={row.steps?.find(step => step.key === name)} currency={row.currency} shared={Boolean(row.ownership?.shared)} missing={row.status === 'pending'}/></div>)}</div>{rowActions(row)}{expanded?.id === row.id && <div className="mt-4">{rowExpanded(row)}</div>}</article>)}</div>}
+        {items.length > 0 && <>{desktop ? <div className={`${styles.tableWrap} ${loading ? styles.loadingOverlay : ''}`}><table className={styles.table}><thead><tr><th scope="col">Unidad disponible</th>{columns.map(([name, label]) => <th scope="col" key={name}>{label}</th>)}<th scope="col">Probar / configurar</th></tr></thead><tbody>{items.map(row => <Fragment key={row.id}><tr data-negotiation-row={row.id}><td><VehicleInfo row={row} isOwner={isOwner}/><div className={styles.context}>{isOwner && <span>Costo total: {money(row.totalCost, row.currency)}</span>}{row.commission && <span>{commissionText(row.commission, row.currency)}</span>}</div></td>{columns.map(([name]) => <td key={name} className={name === 'floor' ? styles.floor : undefined}><PriceValue step={row.steps?.find(step => step.key === name)} currency={row.currency} shared={Boolean(row.ownership?.shared)} missing={row.status === 'pending' && ['published', 'floor'].includes(name)} isOwner={isOwner}/></td>)}<td>{rowActions(row)}</td></tr>{expanded?.id === row.id && <tr className={styles.expanded}><td colSpan={6}><div className={styles.expandedContent}>{rowExpanded(row)}</div></td></tr>}</Fragment>)}</tbody></table></div>
+            : <div className={`${styles.mobileList} ${loading ? styles.loadingOverlay : ''}`}>{items.map(row => <article className={styles.card} key={row.id} data-negotiation-card={row.id}><header className={styles.cardHead}><div><VehicleInfo row={row} isOwner={isOwner}/></div><span className={styles.currency}>{row.currency || 'Moneda pendiente'}</span></header><div className={styles.context}>{isOwner && <span>Costo total: {money(row.totalCost, row.currency)}</span>}{row.commission && <span>{commissionText(row.commission, row.currency)}</span>}</div><div className={styles.priceGrid}>{columns.filter(([name]) => row.steps?.some(step => step.key === name) || ['published', 'floor'].includes(name) && row.status === 'pending').map(([name, label]) => <div key={name} className={`${styles.priceTile} ${name === 'floor' ? styles.floor : ''}`}><span className={styles.priceLabel}>{label}</span><PriceValue step={row.steps?.find(step => step.key === name)} currency={row.currency} shared={Boolean(row.ownership?.shared)} missing={row.status === 'pending'} isOwner={isOwner}/></div>)}</div>{rowActions(row)}{expanded?.id === row.id && <div className="mt-4">{rowExpanded(row)}</div>}</article>)}</div>}
             <CrmPagination currentPage={data.page || page} totalPages={data.pages || 1} totalItems={data.total || 0} limit={data.limit || 20} onPageChange={next => { setExpanded(null); setPage(next); }} disabled={loading}/></>}
     </section>;
 }

@@ -4,300 +4,257 @@ import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 
 export function getMonthPeriod(date = new Date()) {
-    const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit'
+    }).formatToParts(new Date(date));
+    return parts.find(part => part.type === 'year').value + '-' + parts.find(part => part.type === 'month').value;
 }
 
-export async function getFixedExpensesForPeriod(periodStr) {
-    let period = periodStr;
-    if (!period || !/^\d{4}-\d{2}$/.test(period)) {
-        period = getMonthPeriod();
+function validPeriod(value = getMonthPeriod()) {
+    if (typeof value !== 'string' || !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(value)) {
+        throw new Error('El período debe tener el formato AAAA-MM y un mes válido');
     }
+    return value;
+}
 
+function validAmount(value, allowZero = false) {
+    if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') {
+        throw new Error('Ingresá un monto válido');
+    }
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0 || (!allowZero && amount === 0)) {
+        throw new Error(allowZero ? 'El monto debe ser un número mayor o igual a 0' : 'El monto debe ser mayor a 0');
+    }
+    return amount;
+}
+
+function validDay(value = 10) {
+    const day = Number(value);
+    if (!Number.isInteger(day) || day < 1 || day > 31) throw new Error('El vencimiento debe ser un día entre 1 y 31');
+    return day;
+}
+
+function validCurrency(value = 'ARS') {
+    if (!['ARS', 'USD'].includes(value)) throw new Error('La moneda debe ser ARS o USD');
+    return value;
+}
+
+function startPeriodOf(rule) {
+    // Existing rules preserve their earliest recorded month when first upgraded.
+    return rule.startPeriod || rule.instances.map(instance => instance.period).sort()[0] || getMonthPeriod(rule.createdAt || new Date());
+}
+
+function newInstance(rule, period) {
     const [year, month] = period.split('-').map(Number);
-    const maxDays = new Date(year, month, 0).getDate();
-
-    // 1. Obtener todas las reglas de gastos fijos activas
-    const rules = await FixedExpense.find({ isActive: true })
-        .populate('defaultAccountId', 'name currency balance')
-        .sort({ dueDay: 1, name: 1 });
-
-    const items = [];
-    let totalARS = 0, paidARS = 0, pendingARS = 0;
-    let totalUSD = 0, paidUSD = 0, pendingUSD = 0;
-    let countTotal = 0, countPaid = 0, countPending = 0, countAnnulled = 0;
-
-    for (const rule of rules) {
-        let instance = rule.instances.find(inst => inst.period === period);
-        let wasCreated = false;
-
-        if (!instance) {
-            // Carga automática del mes si no existe aún
-            const actualDay = Math.min(rule.dueDay || 10, maxDays);
-            const dueDate = new Date(year, month - 1, actualDay, 12, 0, 0);
-
-            rule.instances.push({
-                period,
-                amount: rule.amount,
-                status: 'pendiente',
-                dueDay: actualDay,
-                dueDate,
-                paidAmount: 0,
-                isModified: false,
-                notes: rule.notes || ''
-            });
-
-            await rule.save();
-            instance = rule.instances[rule.instances.length - 1];
-            wasCreated = true;
-        }
-
-        const isAnnulled = instance.status === 'anulado';
-        const isPaid = instance.status === 'pagado';
-        const isPending = instance.status === 'pendiente';
-
-        const amount = Number(instance.amount || 0);
-        const curr = rule.currency === 'USD' ? 'USD' : 'ARS';
-
-        if (!isAnnulled) {
-            countTotal++;
-            if (curr === 'ARS') {
-                totalARS += amount;
-                if (isPaid) paidARS += amount;
-                if (isPending) pendingARS += amount;
-            } else {
-                totalUSD += amount;
-                if (isPaid) paidUSD += amount;
-                if (isPending) pendingUSD += amount;
-            }
-
-            if (isPaid) countPaid++;
-            if (isPending) countPending++;
-        } else {
-            countAnnulled++;
-        }
-
-        items.push({
-            ruleId: rule._id,
-            instanceId: instance._id,
-            name: rule.name,
-            category: rule.category,
-            currency: curr,
-            baseAmount: rule.amount,
-            amount: instance.amount,
-            dueDay: instance.dueDay || rule.dueDay,
-            dueDate: instance.dueDate || new Date(year, month - 1, Math.min(rule.dueDay || 10, maxDays)),
-            status: instance.status,
-            paidAt: instance.paidAt,
-            paidAmount: instance.paidAmount,
-            paymentMethod: instance.paymentMethod,
-            accountId: instance.accountId || rule.defaultAccountId?._id,
-            accountName: rule.defaultAccountId?.name,
-            notes: instance.notes,
-            isModified: Boolean(instance.isModified),
-            wasAutoLoaded: wasCreated
-        });
-    }
-
+    const day = Math.min(rule.dueDay, new Date(Date.UTC(year, month, 0)).getUTCDate());
     return {
-        period,
-        summary: {
-            ars: { total: totalARS, paid: paidARS, pending: pendingARS },
-            usd: { total: totalUSD, paid: paidUSD, pending: pendingUSD },
-            counts: { total: countTotal, paid: countPaid, pending: countPending, annulled: countAnnulled }
-        },
-        items
+        period, name: rule.name, category: rule.category, currency: rule.currency,
+        amount: rule.amount, status: 'pendiente', dueDay: day,
+        dueDate: new Date(Date.UTC(year, month - 1, day, 15)),
+        paidAmount: 0, isModified: false, notes: rule.notes || ''
     };
 }
 
-export async function createFixedExpense(payload, user = 'System') {
-    const { name, category, amount, currency = 'ARS', dueDay = 10, defaultAccountId, notes } = payload;
-    if (!name || !name.trim()) throw new Error('El nombre del gasto fijo es requerido');
-    if (!amount || Number(amount) <= 0) throw new Error('El monto debe ser mayor a 0');
-
-    const numDay = Math.max(1, Math.min(31, parseInt(dueDay) || 10));
-    const newRule = new FixedExpense({
-        name: name.trim(),
-        category: (category && category.trim()) || 'Servicios',
-        amount: Number(amount),
-        currency: currency === 'USD' ? 'USD' : 'ARS',
-        dueDay: numDay,
-        defaultAccountId: defaultAccountId || undefined,
-        notes: notes || '',
-        createdBy: user,
-        updatedBy: user
-    });
-
-    // Crear automáticamente la instancia para el período actual
-    const currentPeriod = getMonthPeriod();
-    const [y, m] = currentPeriod.split('-').map(Number);
-    const maxDays = new Date(y, m, 0).getDate();
-    const actualDay = Math.min(numDay, maxDays);
-    const dueDate = new Date(y, m - 1, actualDay, 12, 0, 0);
-
-    newRule.instances.push({
-        period: currentPeriod,
-        amount: Number(amount),
-        status: 'pendiente',
-        dueDay: actualDay,
-        dueDate,
-        paidAmount: 0,
-        isModified: false,
-        notes: notes || ''
-    });
-
-    await newRule.save();
-    return newRule;
+function preserveSnapshots(rule) {
+    rule.startPeriod = startPeriodOf(rule);
+    for (const instance of rule.instances) {
+        instance.name ||= rule.name;
+        instance.category ||= rule.category;
+        instance.currency ||= rule.currency;
+    }
 }
 
-export async function updateFixedExpenseMonthlyInstance(ruleId, period, updates, user = 'System') {
-    const rule = await FixedExpense.findById(ruleId);
-    if (!rule) throw new Error('Gasto fijo no encontrado');
+async function inTransaction(work) {
+    const session = await mongoose.startSession();
+    let result;
+    try {
+        await session.withTransaction(async () => { result = await work(session); });
+        return result;
+    } finally { await session.endSession(); }
+}
 
-    const [year, month] = period.split('-').map(Number);
-    const maxDays = new Date(year, month, 0).getDate();
-
-    let instance = rule.instances.find(inst => inst.period === period);
-    if (!instance) {
-        const actualDay = Math.min(rule.dueDay || 10, maxDays);
-        rule.instances.push({
-            period,
-            amount: rule.amount,
-            status: 'pendiente',
-            dueDay: actualDay,
-            dueDate: new Date(year, month - 1, actualDay, 12, 0, 0),
-            paidAmount: 0,
-            isModified: false
+export async function getFixedExpensesForPeriod(periodStr) {
+    const period = validPeriod(periodStr);
+    // Disabled rules remain visible in every month already recorded.
+    const rules = await FixedExpense.find({ $or: [{ isActive: true }, { 'instances.period': period }] })
+        .populate('defaultAccountId', 'name currency balance').sort({ dueDay: 1, name: 1 });
+    const items = [];
+    const summary = {
+        ars: { total: 0, paid: 0, pending: 0 }, usd: { total: 0, paid: 0, pending: 0 },
+        counts: { total: 0, paid: 0, pending: 0, annulled: 0 }
+    };
+    for (let rule of rules) {
+        let instance = rule.instances.find(item => item.period === period);
+        let wasAutoLoaded = false;
+        if (!instance && rule.isActive && period >= startPeriodOf(rule)) {
+            // Conditional push prevents concurrent page loads creating duplicates.
+            const updated = await FixedExpense.findOneAndUpdate({
+                _id: rule._id, isActive: true, 'instances.period': { $ne: period }
+            }, { $push: { instances: newInstance(rule, period) } }, { new: true });
+            if (updated) { rule = await updated.populate('defaultAccountId', 'name currency balance'); wasAutoLoaded = true; }
+            else rule = await FixedExpense.findById(rule._id).populate('defaultAccountId', 'name currency balance');
+            instance = rule?.instances.find(item => item.period === period);
+        }
+        if (!instance) continue;
+        const currency = instance.currency || rule.currency;
+        const totals = currency === 'USD' ? summary.usd : summary.ars;
+        const amount = Number(instance.amount);
+        if (instance.status === 'anulado') summary.counts.annulled++;
+        else {
+            totals.total += amount;
+            summary.counts.total++;
+            if (instance.status === 'pagado') { totals.paid += amount; summary.counts.paid++; }
+            else { totals.pending += amount; summary.counts.pending++; }
+        }
+        items.push({
+            ruleId: rule._id, instanceId: instance._id, name: instance.name || rule.name,
+            category: instance.category || rule.category, currency, baseAmount: rule.amount,
+            amount: instance.amount, dueDay: instance.dueDay || rule.dueDay, dueDate: instance.dueDate,
+            status: instance.status, paidAt: instance.paidAt, paidAmount: instance.paidAmount,
+            paymentMethod: instance.paymentMethod, accountId: instance.accountId || rule.defaultAccountId?._id,
+            accountName: rule.defaultAccountId?.name, notes: instance.notes,
+            isModified: Boolean(instance.isModified), wasAutoLoaded, isActive: rule.isActive
         });
-        instance = rule.instances[rule.instances.length - 1];
     }
-
-    // 1. Modificar Monto del mes
-    if (updates.amount !== undefined) {
-        const numAmount = Number(updates.amount);
-        if (numAmount < 0) throw new Error('El monto no puede ser negativo');
-        instance.amount = numAmount;
-        instance.isModified = true;
-    }
-
-    // 2. Modificar notas
-    if (updates.notes !== undefined) {
-        instance.notes = updates.notes;
-    }
-
-    // 3. Cambiar estado (pagado | pendiente | anulado)
-    if (updates.status) {
-        const prevStatus = instance.status;
-        const newStatus = updates.status;
-
-        if (newStatus === 'pagado') {
-            instance.status = 'pagado';
-            instance.paidAt = updates.paidAt ? new Date(updates.paidAt) : new Date();
-            instance.paidAmount = instance.amount;
-            instance.paymentMethod = updates.paymentMethod || 'efectivo';
-            if (updates.accountId) instance.accountId = updates.accountId;
-
-            // Registrar movimiento de caja si se especificó cuenta
-            if (updates.accountId && updates.registerMovement) {
-                try {
-                    const account = await Account.findById(updates.accountId);
-                    if (account && account.isActive !== false) {
-                        const tx = new Transaction({
-                            type: 'Egreso',
-                            category: rule.category || 'Gastos Fijos',
-                            concept: `Gasto Fijo: ${rule.name} (${period})`,
-                            amount: instance.amount,
-                            currency: rule.currency,
-                            date: instance.paidAt,
-                            accountId: account._id,
-                            module: 'crm_v2',
-                            source: 'otro',
-                            status: 'activo',
-                            notes: `[GASTO_FIJO:${rule._id}:${period}] Pago de gasto fijo ${rule.name}`,
-                            createdBy: user
-                        });
-                        await tx.save();
-                        account.balance -= instance.amount;
-                        await account.save();
-                        instance.transactionId = tx._id;
-                    }
-                } catch (txErr) {
-                    console.error('Error registrando movimiento de gasto fijo:', txErr);
-                }
-            }
-        } else if (newStatus === 'pendiente') {
-            instance.status = 'pendiente';
-            instance.paidAt = undefined;
-            instance.paidAmount = 0;
-
-            // Revertir transacción si existía
-            if (instance.transactionId) {
-                try {
-                    const tx = await Transaction.findById(instance.transactionId);
-                    if (tx && tx.status !== 'anulado') {
-                        tx.status = 'anulado';
-                        tx.notes += ' (Anulado al volver gasto fijo a pendiente)';
-                        await tx.save();
-
-                        const account = await Account.findById(tx.accountId);
-                        if (account) {
-                            account.balance += tx.amount;
-                            await account.save();
-                        }
-                    }
-                } catch (txErr) {
-                    console.error('Error anulando transacción de gasto fijo:', txErr);
-                }
-                instance.transactionId = undefined;
-            }
-        } else if (newStatus === 'anulado') {
-            instance.status = 'anulado';
-            if (instance.transactionId) {
-                try {
-                    const tx = await Transaction.findById(instance.transactionId);
-                    if (tx && tx.status !== 'anulado') {
-                        tx.status = 'anulado';
-                        await tx.save();
-                        const account = await Account.findById(tx.accountId);
-                        if (account) {
-                            account.balance += tx.amount;
-                            await account.save();
-                        }
-                    }
-                } catch (txErr) {
-                    console.error('Error anulando transacción al anular gasto fijo:', txErr);
-                }
-                instance.transactionId = undefined;
-            }
-        }
-    }
-
-    rule.updatedBy = user;
-    await rule.save();
-    return { rule, instance };
+    return { period, summary, items };
 }
 
-export async function updateMasterFixedExpense(ruleId, updates, user = 'System') {
-    const rule = await FixedExpense.findById(ruleId);
-    if (!rule) throw new Error('Gasto fijo no encontrado');
+async function validateAccount(accountId, currency, session) {
+    if (!mongoose.isValidObjectId(accountId)) throw new Error('Seleccioná una cuenta válida');
+    const query = Account.findById(accountId);
+    if (session) query.session(session);
+    const account = await query;
+    if (!account || account.isActive === false) throw new Error('La cuenta no existe o está desactivada');
+    if (account.currency !== currency) throw new Error('La cuenta debe tener la misma moneda que el gasto');
+    return account;
+}
 
-    const allowed = ['name', 'category', 'amount', 'currency', 'dueDay', 'defaultAccountId', 'notes', 'isActive'];
-    allowed.forEach(f => {
-        if (updates[f] !== undefined) {
-            rule[f] = updates[f];
-        }
+export async function createFixedExpense(payload, user = 'System') {
+    if (typeof payload.name !== 'string' || !payload.name.trim()) throw new Error('El nombre del gasto fijo es requerido');
+    const period = validPeriod(payload.period ?? payload.startPeriod);
+    const currency = validCurrency(payload.currency);
+    if (payload.defaultAccountId) await validateAccount(payload.defaultAccountId, currency);
+    const rule = new FixedExpense({
+        name: payload.name.trim(), category: typeof payload.category === 'string' && payload.category.trim() || 'Servicios',
+        amount: validAmount(payload.amount), currency, dueDay: validDay(payload.dueDay),
+        defaultAccountId: payload.defaultAccountId || undefined, notes: payload.notes || '',
+        startPeriod: period, createdBy: user, updatedBy: user
     });
-
-    rule.updatedBy = user;
+    rule.instances.push(newInstance(rule, period));
     await rule.save();
     return rule;
 }
 
+async function reversePayment(instance, user, session) {
+    if (!instance.transactionId) return;
+    const transaction = await Transaction.findById(instance.transactionId).session(session);
+    if (!transaction) throw new Error('No se encontró el movimiento del pago; no se pudo revertir');
+    if (transaction.status !== 'anulado') {
+        const account = await Account.findById(transaction.accountId).session(session);
+        if (!account) throw new Error('No se encontró la cuenta del pago; no se pudo revertir');
+        transaction.status = 'anulado';
+        transaction.updatedBy = user;
+        transaction.notes = (transaction.notes || '') + ' (Anulado al revertir gasto fijo)';
+        await transaction.save({ session });
+        account.balance += transaction.amount;
+        await account.save({ session });
+    }
+    instance.transactionId = undefined;
+}
+
+export async function updateFixedExpenseMonthlyInstance(ruleId, periodStr, updates, user = 'System') {
+    const period = validPeriod(periodStr);
+    const amount = updates.amount === undefined ? undefined : validAmount(updates.amount, true);
+    if (updates.status !== undefined && !['pagado', 'pendiente', 'anulado'].includes(updates.status)) throw new Error('Estado inválido');
+    if (updates.registerMovement !== undefined && typeof updates.registerMovement !== 'boolean') throw new Error('La opción de movimiento debe ser verdadera o falsa');
+    let paidAt;
+    if (updates.paidAt !== undefined) {
+        paidAt = new Date(updates.paidAt);
+        if (!Number.isFinite(paidAt.getTime())) throw new Error('La fecha de pago no es válida');
+    }
+    return inTransaction(async session => {
+        const rule = await FixedExpense.findById(ruleId).session(session);
+        if (!rule) throw new Error('Gasto fijo no encontrado');
+        preserveSnapshots(rule);
+        let instance = rule.instances.find(item => item.period === period);
+        if (!instance) {
+            if (!rule.isActive || period < rule.startPeriod) throw new Error('El gasto fijo no corresponde a este período');
+            rule.instances.push(newInstance(rule, period));
+            instance = rule.instances[rule.instances.length - 1];
+        }
+        const nextStatus = updates.status ?? instance.status;
+        if (amount !== undefined && amount !== instance.amount && instance.status === 'pagado' && nextStatus === 'pagado') {
+            throw new Error('Para modificar el monto de un gasto pagado, volvé a pendiente primero');
+        }
+        if (amount !== undefined) { instance.amount = amount; instance.isModified = true; }
+        if (updates.notes !== undefined) instance.notes = updates.notes;
+        if (nextStatus === 'pagado' && instance.status !== 'pagado') {
+            const account = updates.registerMovement ? await validateAccount(updates.accountId, instance.currency, session) : null;
+            instance.paidAt = paidAt || new Date();
+            instance.paidAmount = instance.amount;
+            instance.paymentMethod = updates.paymentMethod || 'efectivo';
+            instance.accountId = account?._id;
+            if (account) {
+                const description = 'Gasto Fijo: ' + instance.name + ' (' + period + ')';
+                const transaction = new Transaction({
+                    type: 'Egreso', description, concept: description, category: instance.category,
+                    amount: instance.amount, currency: instance.currency, date: instance.paidAt,
+                    accountId: account._id, paymentMethod: instance.paymentMethod,
+                    module: 'crm_v2', source: 'otro', status: 'activo',
+                    notes: '[GASTO_FIJO:' + rule._id + ':' + period + '] Pago de gasto fijo ' + instance.name, createdBy: user
+                });
+                transaction.idempotencyKey = 'fixed-expense:' + rule._id + ':' + period + ':' + transaction._id;
+                await transaction.save({ session });
+                account.balance -= instance.amount;
+                await account.save({ session });
+                instance.transactionId = transaction._id;
+            }
+        } else if (nextStatus !== 'pagado') {
+            await reversePayment(instance, user, session);
+            instance.paidAt = undefined;
+            instance.paidAmount = 0;
+            instance.accountId = undefined;
+            instance.paymentMethod = undefined;
+        }
+        instance.status = nextStatus;
+        rule.updatedBy = user;
+        await rule.save({ session });
+        return { rule, instance };
+    });
+}
+
+export async function updateMasterFixedExpense(ruleId, updates, user = 'System') {
+    return inTransaction(async session => {
+        const rule = await FixedExpense.findById(ruleId).session(session);
+        if (!rule) throw new Error('Gasto fijo no encontrado');
+        preserveSnapshots(rule);
+        if (updates.name !== undefined) {
+            if (typeof updates.name !== 'string' || !updates.name.trim()) throw new Error('El nombre del gasto fijo es requerido');
+            rule.name = updates.name.trim();
+        }
+        if (updates.category !== undefined) {
+            if (typeof updates.category !== 'string' || !updates.category.trim()) throw new Error('La categoría es requerida');
+            rule.category = updates.category.trim();
+        }
+        if (updates.amount !== undefined) rule.amount = validAmount(updates.amount);
+        if (updates.currency !== undefined) rule.currency = validCurrency(updates.currency);
+        if (updates.dueDay !== undefined) rule.dueDay = validDay(updates.dueDay);
+        if (updates.defaultAccountId !== undefined) rule.defaultAccountId = updates.defaultAccountId || undefined;
+        if (rule.defaultAccountId && (updates.defaultAccountId !== undefined || updates.currency !== undefined)) {
+            await validateAccount(rule.defaultAccountId, rule.currency, session);
+        }
+        if (updates.notes !== undefined) rule.notes = updates.notes;
+        if (updates.isActive !== undefined) {
+            if (typeof updates.isActive !== 'boolean') throw new Error('Estado activo inválido');
+            rule.isActive = updates.isActive;
+        }
+        rule.updatedBy = user;
+        await rule.save({ session });
+        return rule;
+    });
+}
+
 export async function deleteFixedExpense(ruleId, user = 'System') {
-    const rule = await FixedExpense.findById(ruleId);
-    if (!rule) throw new Error('Gasto fijo no encontrado');
-    rule.isActive = false;
-    rule.updatedBy = user;
-    await rule.save();
-    return { ok: true, message: 'Gasto fijo desactivado con éxito' };
+    await updateMasterFixedExpense(ruleId, { isActive: false }, user);
+    return { ok: true, message: 'Gasto fijo desactivado; se conserva el historial registrado' };
 }
