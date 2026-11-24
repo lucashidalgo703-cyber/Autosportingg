@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import connectDB from '../config/db.js';
 import { canReadCapitalHistory } from '../utils/adminPermissions.js';
 import { queryCapitalHistory, captureCapitalObservation, captureScheduledCapitalObservation } from '../services/capitalHistoryService.js';
+import { previewStockRecovery, importStockRecovery } from '../services/stockRecoveryService.js';
 const headers = (_req, res, next) => { res.set({ 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex, nofollow' }); next(); };
 const endpoint = callback => async (req, res) => {
     try { await connectDB(); res.json(await callback(req)); }
@@ -12,6 +13,8 @@ export function createCapitalHistoryRouter({ authenticate }) {
     const router = Router(); router.use(headers, authenticate,
         (req, res, next) => canReadCapitalHistory(req.user) ? next() : res.status(403).json({ message: 'Sólo el propietario puede consultar el capital mensual.' }));
     router.get('/', endpoint(req => queryCapitalHistory(req.user, req.query)));
+    router.get('/recovery', endpoint(req => previewStockRecovery(req.user, req.query)));
+    router.post('/recovery', endpoint(req => importStockRecovery(req.user, req.body, req)));
     router.post('/capture', endpoint(req => {
         const input = req.body;
         if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'period')) {

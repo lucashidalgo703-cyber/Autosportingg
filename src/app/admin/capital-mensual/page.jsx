@@ -8,7 +8,7 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmModal from '../../../components/crm/ui/CrmModal';
 import CapitalHistoryChart from '../../../components/crm/capital/CapitalHistoryChart';
 import CapitalStockComparison from '../../../components/crm/capital/CapitalStockComparison';
-import { capitalChange, capitalComponents, capitalMetricLabel, capitalMoment, capitalMoney, capitalPeriodLabel, capitalQuality, capitalRows, capitalStatusLabel, capitalStockBreakdown, capitalValue, currentCapitalPeriod, shiftCapitalPeriod } from '../../../utils/capitalHistoryView';
+import { capitalChange, capitalComponents, capitalMetricLabel, capitalMoment, capitalMoney, capitalPeriodLabel, capitalQuality, capitalRecoveryCoverage, capitalRows, capitalStatusLabel, capitalStockBreakdown, capitalValue, currentCapitalPeriod, isReconstructedCapital, shiftCapitalPeriod } from '../../../utils/capitalHistoryView';
 
 const inputClass = 'h-10 rounded-lg border border-crm-border bg-crm-bg px-3 text-base text-crm-fg outline-none focus:ring-2 focus:ring-crm-red/30 md:text-sm';
 const stockMetrics = ['stockTotal', 'stockOwn', 'stockInvestors', 'stockUnallocated'];
@@ -38,7 +38,7 @@ function Difference({ value, currency }) {
 }
 function StockAmounts({ row, currency, basis, cards = false }) {
     const amounts = capitalStockBreakdown(row, currency, basis);
-    if (!amounts) return <p className="rounded-xl border border-dashed border-crm-border p-4 text-sm text-crm-fg-muted" data-capital-stock-breakdown>Sin desglose guardado. Este registro conserva el capital propio neto; el reparto de Stock no se reconstruye con valores de hoy.</p>;
+    if (!amounts) return <p className="rounded-xl border border-dashed border-crm-border p-4 text-sm text-crm-fg-muted" data-capital-stock-breakdown>{isReconstructedCapital(row) ? 'Sin importes históricos de Stock documentados para esta moneda. No se reconstruyó el capital propio neto.' : 'Sin desglose guardado. Este registro conserva el capital propio neto; el reparto de Stock no se reconstruye con valores de hoy.'}</p>;
     return <div data-capital-stock-breakdown className="space-y-3">
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{stockMetrics.map(metric => <div key={metric} data-capital-stock-card={cards ? metric : undefined} className={`min-w-0 rounded-xl border p-4 ${cards && metric === 'stockTotal' ? 'border-crm-red/40 bg-crm-red/10' : 'border-crm-border bg-crm-bg'}`}>
             <dt className="text-xs font-bold text-crm-fg-muted">{capitalMetricLabel(metric)}</dt>
@@ -47,15 +47,46 @@ function StockAmounts({ row, currency, basis, cards = false }) {
         <p className="text-xs text-crm-fg-muted">{basis === 'published' ? `Terceros en consignación / otros incluidos en el total publicado: ${capitalMoney(amounts.thirdParty, currency)}.` : `Costos de terceros excluidos del total: ${capitalMoney(amounts.thirdPartyExcluded, currency)}.`} {basis === 'published' ? 'Total = AutoSporting + inversionistas + terceros + participación por verificar.' : 'Total = AutoSporting + inversionistas + participación por verificar.'}</p>
     </div>;
 }
+const recoverySources = { cars: 'Fichas de vehículos', sales: 'Ventas', reservations: 'Reservas', audits: 'Auditorías',
+    trash: 'Fichas conservadas en papelera', invoices: 'Facturas', observations: 'Capturas de capital', anchors: 'Referencias históricas' };
+function RecoveryDetails({ row, currency, basis, showDates = true, allCurrencies = false }) {
+    const recovery = row.recovery || {}, coverage = capitalRecoveryCoverage(row);
+    const warnings = Array.isArray(recovery.warnings) ? recovery.warnings.filter(value => typeof value === 'string') : [];
+    const assumptions = Array.isArray(recovery.assumptions) ? recovery.assumptions.filter(value => typeof value === 'string') : [];
+    const sources = Object.entries(recovery.sourceCounts || {}).filter(([key, value]) => recoverySources[key] && Number.isFinite(value) && value >= 0);
+    return <div className="space-y-3" data-capital-recovery-details>
+        {showDates && <div className="space-y-1 text-xs text-crm-fg-muted"><p>Corte histórico: {capitalMoment(recovery.cutoffAt || row.asOf)} · Hora argentina.</p><p>Recuperado: {capitalMoment(row.capturedAt)} · Hora argentina.</p></div>}
+        <p className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-xs text-amber-200">Stock disponible reconstruido con la evidencia conservada. No es una captura realizada en aquel mes y no reconstruye caja, cartera ni obligaciones. Los datos parciales no se usan para confirmar crecimiento.</p>
+        <details className="rounded-xl border border-crm-border p-3"><summary className="cursor-pointer text-xs font-bold text-crm-fg">Cobertura, fuentes y límites de la recuperación</summary><div className="mt-3 space-y-4">
+            {coverage.length > 0 ? <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">{coverage.map(item => <div key={item.key} className="flex justify-between gap-3"><dt className="text-crm-fg-muted">{item.label}</dt><dd className="font-bold text-crm-fg">{item.count}</dd></div>)}</dl> : <p className="text-xs text-crm-fg-muted">Cobertura histórica sin detalle disponible.</p>}
+            {sources.length > 0 && <div><h4 className="text-xs font-bold text-crm-fg">Fuentes consultadas</h4><p className="mt-1 text-xs text-crm-fg-muted">{sources.map(([key, count]) => `${recoverySources[key]}: ${count}`).join(' · ')}</p></div>}
+            {assumptions.length > 0 && <div><h4 className="text-xs font-bold text-crm-fg">Criterios aplicados</h4><ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-crm-fg-muted">{assumptions.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+            {warnings.length > 0 && <div><h4 className="text-xs font-bold text-amber-300">Datos faltantes y advertencias</h4><ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-amber-200">{warnings.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
+        </div></details>
+        {recovery.estimates?.stockCapital && <details className="rounded-xl border border-amber-400/25 p-3"><summary className="cursor-pointer text-xs font-bold text-amber-300">Ver estimaciones orientativas · {allCurrencies ? 'ARS y USD' : currency}</summary><div className="mt-3 space-y-3"><p className="text-xs text-crm-fg-muted">Estos valores utilizan datos que no acreditan su vigencia en el corte histórico. Se conservan separados de los subtotales documentados y no representan crecimiento comprobado.</p>{(allCurrencies ? ['ARS', 'USD'] : [currency]).map(value => <div key={value} className="space-y-2"><h4 className="text-xs font-bold text-crm-fg">Estimación · {value} · {basis === 'published' ? 'Precio publicado' : 'A costo'}</h4><StockAmounts row={{ stockCapital: recovery.estimates.stockCapital }} currency={value} basis={basis}/></div>)}</div></details>}
+    </div>;
+}
+function RecoveryPreview({ plan, basis }) {
+    const existing = new Set(plan.existingPeriods || []);
+    return <div className="space-y-4" data-capital-recovery-preview>
+        <p className="text-sm text-crm-fg-muted">Se guardarán solo meses faltantes. Los meses con registros guardados se conservan. La recuperación incluye Stock disponible en cada corte, con ARS y USD separados; no determina el capital propio neto.</p>
+        <p className="text-xs font-bold text-crm-fg">{plan.importablePeriods?.length || 0} meses para recuperar · {plan.existingPeriods?.length || 0} meses ya registrados</p>
+        {(plan.rows || []).map(row => <article key={row.period} className="space-y-3 rounded-xl border border-crm-border p-3 sm:p-4" data-recovery-period={row.period}>
+            <div className="flex flex-wrap justify-between gap-2"><div><h3 className="text-sm font-bold text-crm-fg">{capitalPeriodLabel(row.period)}</h3>{!existing.has(row.period) && <><p className="mt-1 text-xs text-crm-fg-muted">Corte: {capitalMoment(row.recovery?.cutoffAt || row.asOf)} · Hora argentina</p><p className="mt-1 text-xs text-crm-fg-muted">{row.recovery?.coverage?.availableVehicles ?? row.stockCapital?.count ?? 'Sin dato'} unidades incluidas</p></>}</div><div>{existing.has(row.period) ? <span className="text-xs font-bold text-emerald-300">Se conserva el registro guardado</span> : <QualityBadge row={row} basis={basis} metric="stockTotal"/>}</div></div>
+            {existing.has(row.period) ? <p className="text-xs text-crm-fg-muted">Este mes ya tiene un registro. La recuperación no modifica sus importes ni su origen.</p> : <><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{['ARS', 'USD'].map(value => <div key={value} className="rounded-lg border border-crm-border bg-crm-bg p-3"><h4 className="text-xs font-bold text-crm-fg">Subtotal histórico respaldado · {value}</h4><dl className="mt-2 space-y-1 text-xs"><div className="flex flex-wrap justify-between gap-2"><dt className="text-crm-fg-muted">A costo</dt><dd className="font-bold text-crm-fg">{capitalMoney(capitalValue(row, value, 'cost', 'stockTotal'), value)}</dd></div><div className="flex flex-wrap justify-between gap-2"><dt className="text-crm-fg-muted">Precio publicado</dt><dd className="font-bold text-crm-fg">{capitalMoney(capitalValue(row, value, 'published', 'stockTotal'), value)}</dd></div></dl></div>)}</div><RecoveryDetails row={row} currency="ARS" basis={basis} showDates={false} allCurrencies/></>}
+        </article>)}
+        {!plan.importablePeriods?.length && <p role="status" className="rounded-xl border border-crm-border p-3 text-sm text-crm-fg-muted">No hay meses faltantes para recuperar en este rango.</p>}
+    </div>;
+}
 function Components({ row, currency, basis }) {
     const components = capitalComponents(row, currency, basis), quality = capitalQuality(row, basis);
     return <div className="space-y-4">
         <p className="text-sm font-bold">{capitalPeriodLabel(row.period)} · {currency}</p>
         <h3 className="text-sm font-bold">Capital en Stock</h3><StockAmounts row={row} currency={currency} basis={basis}/>
-        <h3 className="text-sm font-bold">Composición del capital propio neto</h3>
-        {components.length ? <dl className="divide-y divide-crm-border rounded-xl border border-crm-border bg-crm-bg px-3">{components.map(component => <div key={component.key} className="flex flex-wrap items-start justify-between gap-3 py-3"><div className="min-w-0 flex-1"><dt className="text-sm text-crm-fg">{component.sign} {component.label}</dt>{component.description && <p className="mt-1 text-xs text-crm-fg-muted">{component.description}</p>}</div><dd className="text-sm font-bold">{capitalMoney(component.value, currency)}</dd></div>)}<div className="flex flex-wrap justify-between gap-3 py-3 font-bold"><dt>Capital propio neto</dt><dd>{capitalMoney(capitalValue(row, currency, basis), currency)}</dd></div></dl> : <p className="text-sm text-crm-fg-muted">Este registro no tiene una composición detallada disponible.</p>}
+        {!isReconstructedCapital(row) && <h3 className="text-sm font-bold">Composición del capital propio neto</h3>}
+        {isReconstructedCapital(row) ? <RecoveryDetails row={row} currency={currency} basis={basis}/> : components.length ? <dl className="divide-y divide-crm-border rounded-xl border border-crm-border bg-crm-bg px-3">{components.map(component => <div key={component.key} className="flex flex-wrap items-start justify-between gap-3 py-3"><div className="min-w-0 flex-1"><dt className="text-sm text-crm-fg">{component.sign} {component.label}</dt>{component.description && <p className="mt-1 text-xs text-crm-fg-muted">{component.description}</p>}</div><dd className="text-sm font-bold">{capitalMoney(component.value, currency)}</dd></div>)}<div className="flex flex-wrap justify-between gap-3 py-3 font-bold"><dt>Capital propio neto</dt><dd>{capitalMoney(capitalValue(row, currency, basis), currency)}</dd></div></dl> : <p className="text-sm text-crm-fg-muted">Este registro no tiene una composición detallada disponible.</p>}
         {quality.message && <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-crm-fg-muted">{quality.message}</p>}
-        <p className="text-xs text-crm-fg-muted">{row.status === 'current' ? 'Consultado' : 'Registrado'}: {capitalMoment(row.asOf || row.capturedAt)} · Hora argentina.</p>
+        {!isReconstructedCapital(row) && <p className="text-xs text-crm-fg-muted">{row.status === 'current' ? 'Consultado' : 'Registrado'}: {capitalMoment(row.asOf || row.capturedAt)} · Hora argentina.</p>}
         {row.sourceLabel && <p className="text-xs text-crm-fg-muted">Origen: {row.sourceLabel}</p>}
     </div>;
 }
@@ -71,7 +102,10 @@ function CapitalHistory({ canWrite }) {
     const [currency, setCurrency] = useState('ARS'), [basis, setBasis] = useState('cost'), [metric, setMetric] = useState('stockTotal');
     const [data, setData] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState(''), [generation, setGeneration] = useState(0);
     const [captureOpen, setCaptureOpen] = useState(false), [capturing, setCapturing] = useState(false), [captureError, setCaptureError] = useState(''), [detail, setDetail] = useState(null);
-    const busy = useRef(false), captureKey = useRef(null);
+    const [recoveryOpen, setRecoveryOpen] = useState(false), [recoveryFrom, setRecoveryFrom] = useState('2026-05'), [recoveryTo, setRecoveryTo] = useState(period);
+    const [recoveryPlan, setRecoveryPlan] = useState(null), [recoveryLoading, setRecoveryLoading] = useState(false), [recovering, setRecovering] = useState(false), [recoveryError, setRecoveryError] = useState('');
+    const busy = useRef(false), captureKey = useRef(null), recoveryController = useRef(null);
+    useEffect(() => () => recoveryController.current?.abort(), []);
     const validRange = /^\d{4}-(0[1-9]|1[0-2])$/.test(from) && /^\d{4}-(0[1-9]|1[0-2])$/.test(to) && from <= to && to <= period && from >= shiftCapitalPeriod(to, -59);
     useEffect(() => {
         if (!validRange) { setLoading(false); return; }
@@ -97,10 +131,44 @@ function CapitalHistory({ canWrite }) {
         finally { busy.current = false; setCapturing(false); }
     };
     const closeDetail = useCallback(() => setDetail(null), []);
+    const validRecoveryRange = /^\d{4}-(0[1-9]|1[0-2])$/.test(recoveryFrom) && /^\d{4}-(0[1-9]|1[0-2])$/.test(recoveryTo)
+        && recoveryFrom >= '2026-05' && recoveryFrom <= recoveryTo && recoveryTo <= period;
+    const loadRecovery = async () => {
+        if (!canWrite || !validRecoveryRange || busy.current) return;
+        recoveryController.current?.abort();
+        const controller = new AbortController(); recoveryController.current = controller;
+        setRecoveryLoading(true); setRecoveryError(''); setRecoveryPlan(null);
+        try {
+            const plan = await request('/recovery?' + new URLSearchParams({ from: recoveryFrom, to: recoveryTo }), { signal: controller.signal });
+            if (!Array.isArray(plan.rows) || typeof plan.planId !== 'string') throw new Error('No se pudo preparar la recuperación. Volvé a consultar.');
+            if (!controller.signal.aborted) setRecoveryPlan(plan);
+        } catch (cause) { if (!controller.signal.aborted) setRecoveryError(cause.message || 'No se pudo preparar la recuperación.'); }
+        finally { if (!controller.signal.aborted) setRecoveryLoading(false); }
+    };
+    const openRecovery = () => { setRecoveryOpen(true); void loadRecovery(); };
+    const closeRecovery = () => {
+        if (busy.current) return;
+        recoveryController.current?.abort(); setRecoveryLoading(false); setRecoveryOpen(false); setRecoveryPlan(null); setRecoveryError('');
+    };
+    const recover = async () => {
+        if (busy.current || !canWrite || !recoveryPlan?.planId || !recoveryPlan.importablePeriods?.length) return;
+        busy.current = true; setRecovering(true); setRecoveryError('');
+        try {
+            const result = await request('/recovery', { method: 'POST', body: { from: recoveryPlan.from, to: recoveryPlan.to, planId: recoveryPlan.planId } });
+            const imported = result.importedPeriods?.length || 0, preserved = result.preservedPeriods?.length || 0;
+            setNotice(result.duplicate ? 'La recuperación ya estaba guardada. Se conservaron los registros existentes sin duplicarlos.'
+                : `Se recuperaron ${imported} meses de Stock y se conservaron ${preserved} meses ya registrados.`);
+            setFrom(recoveryPlan.from); setTo(recoveryPlan.to); setGeneration(value => value + 1); setRecoveryOpen(false); setRecoveryPlan(null);
+        } catch (cause) {
+            setRecoveryError(cause.message || 'No se pudo guardar la recuperación. Reintentá.');
+            if (cause.status === 409) setRecoveryPlan(null);
+        } finally { busy.current = false; setRecovering(false); }
+    };
     return <div className="min-w-0 space-y-5 p-4 md:p-6" data-capital-history>
         <CrmPageHeader title="Capital mensual" subtitle="Tu capital en Stock y el de los inversionistas, mes a mes." actions={<>
-            <CrmButton type="button" variant="secondary" disabled={loading || capturing} onClick={() => setGeneration(value => value + 1)}><RefreshCw size={16} className={loading ? 'animate-spin' : undefined}/>Actualizar</CrmButton>
-            {canWrite && <CrmButton type="button" disabled={!captureAllowed || loading || capturing} onClick={() => { setCaptureError(''); setCaptureOpen(true); }}><Save size={16}/>Guardar registro actual</CrmButton>}
+            <CrmButton type="button" variant="secondary" disabled={loading || capturing || recovering} onClick={() => setGeneration(value => value + 1)}><RefreshCw size={16} className={loading ? 'animate-spin' : undefined}/>Actualizar</CrmButton>
+            {canWrite && <CrmButton type="button" variant="secondary" disabled={loading || capturing || recovering} onClick={openRecovery}><CalendarRange size={16}/>Recuperar stock histórico</CrmButton>}
+            {canWrite && <CrmButton type="button" disabled={!captureAllowed || loading || capturing || recovering} onClick={() => { setCaptureError(''); setCaptureOpen(true); }}><Save size={16}/>Guardar registro actual</CrmButton>}
         </>}/>
         <section className="flex flex-col gap-4 rounded-xl border border-crm-border bg-crm-surface p-4 lg:flex-row lg:items-end" aria-label="Filtros del capital mensual">
             <label className="space-y-1.5 text-xs font-bold text-crm-fg-muted"><span className="block">Desde</span><input type="month" aria-label="Desde" value={from} max={to || period} onChange={event => setFrom(event.target.value)} className={inputClass}/></label>
@@ -123,17 +191,26 @@ function CapitalHistory({ canWrite }) {
         {current && <details className="rounded-xl border border-crm-border bg-crm-surface p-4"><summary className="cursor-pointer text-sm font-bold text-crm-fg">Ver conciliación con Stock y composición</summary><div className="mt-4"><CapitalStockComparison current={current} currency={currency} basis={basis}/></div></details>}
         {data && validRange && <>
             <section className="rounded-2xl border border-crm-border bg-crm-surface p-4 sm:p-5" aria-label="Gráfico de capital mensual"><div className="mb-4 flex flex-wrap items-start justify-between gap-4"><div><h2 className="flex items-center gap-2 text-base font-bold text-crm-fg"><CalendarRange size={18} className="text-crm-red"/>Evolución del capital · {currency}</h2><p className="mt-1 text-xs text-crm-fg-muted">{capitalMetricLabel(metric)} · {basis === 'cost' ? 'A costo' : 'A precio publicado'} · {available.length} meses con registros guardados</p></div><div><label htmlFor="capital-indicator" className="mb-1.5 block text-xs font-bold text-crm-fg-muted">Indicador del gráfico</label><select id="capital-indicator" value={metric} onChange={event => setMetric(event.target.value)} className={`${inputClass} max-w-full`}>{graphMetrics.map(value => <option key={value} value={value}>{capitalMetricLabel(value)}</option>)}</select></div></div><CapitalHistoryChart rows={rows} current={current} currency={currency} basis={basis} metric={metric}/></section>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crm-border bg-crm-surface p-4"><p className="flex-1 text-sm text-crm-fg-muted">{data.firstRecordedPeriod ? `El historial tiene registros desde ${capitalPeriodLabel(data.firstRecordedPeriod).toLowerCase()}.` : 'Todavía no hay registros de capital guardados.'} Cada mes conserva su último registro observado, con la fecha real de captura. Los registros antiguos sin reparto de Stock muestran «Sin desglose guardado».</p>{data.firstRecordedPeriod && <CrmButton type="button" variant="ghost" disabled={loading} onClick={() => { setFrom(data.firstRecordedPeriod < shiftCapitalPeriod(period, -59) ? shiftCapitalPeriod(period, -59) : data.firstRecordedPeriod); setTo(period); }}>{data.firstRecordedPeriod < shiftCapitalPeriod(period, -59) ? 'Últimos 60 meses' : 'Desde el primer registro'}</CrmButton>}</div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crm-border bg-crm-surface p-4"><p className="flex-1 text-sm text-crm-fg-muted">{data.firstRecordedPeriod ? `El historial tiene registros desde ${capitalPeriodLabel(data.firstRecordedPeriod).toLowerCase()}.` : 'Todavía no hay registros de capital guardados.'} Los meses observados conservan su última captura real. «Stock reconstruido» identifica una recuperación posterior de evidencia histórica: muestra el corte y la fecha de recuperación por separado. Sus datos parciales se representan como puntos y no confirman crecimiento. Los registros sin reparto de Stock muestran «Sin desglose guardado».</p>{data.firstRecordedPeriod && <CrmButton type="button" variant="ghost" disabled={loading} onClick={() => { setFrom(data.firstRecordedPeriod < shiftCapitalPeriod(period, -59) ? shiftCapitalPeriod(period, -59) : data.firstRecordedPeriod); setTo(period); }}>{data.firstRecordedPeriod < shiftCapitalPeriod(period, -59) ? 'Últimos 60 meses' : 'Desde el primer registro'}</CrmButton>}</div>
             <section aria-label="Historial mensual de capital" className={loading ? 'space-y-4 opacity-60' : 'space-y-4'}>
-                {[...rows].reverse().map(row => <article key={row.period} data-capital-period={row.period} className="space-y-4 rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold text-crm-fg">{capitalPeriodLabel(row.period)}</h3><p className="mt-1 text-xs text-crm-fg-muted">{capitalStatusLabel(row)}</p></div>{row.status !== 'missing' && <div className="space-y-1 text-right"><p className="text-xs text-crm-fg-muted">{capitalMoment(row.capturedAt)}</p><QualityBadge row={row} basis={basis} metric={metric}/></div>}</div>
+                {[...rows].reverse().map(row => <article key={row.period} data-capital-period={row.period} data-capital-reconstructed={isReconstructedCapital(row) || undefined} className="space-y-4 rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold text-crm-fg">{capitalPeriodLabel(row.period)}</h3><p className="mt-1 text-xs text-crm-fg-muted">{capitalStatusLabel(row)}</p></div>{row.status !== 'missing' && <div className="space-y-1 text-right">{isReconstructedCapital(row) ? <><p className="text-xs text-crm-fg-muted">Corte: {capitalMoment(row.recovery?.cutoffAt || row.asOf)}</p><p className="text-xs text-crm-fg-muted">Recuperado: {capitalMoment(row.capturedAt)}</p></> : <p className="text-xs text-crm-fg-muted">{capitalMoment(row.capturedAt)}</p>}<QualityBadge row={row} basis={basis} metric={metric}/></div>}</div>
                     {row.status === 'missing' ? <p className="text-sm text-crm-fg-muted">No hay un registro guardado.</p> : <>
-                        <StockAmounts row={row} currency={currency} basis={basis}/>
-                        <div className="flex flex-wrap items-start justify-between gap-4 border-t border-crm-border pt-4"><div><p className="text-xs font-bold text-crm-fg-muted">Capital propio neto · {currency}</p><p className="mt-1 text-base font-bold text-crm-fg">{capitalMoney(capitalValue(row, currency, basis), currency)}</p></div><div><p className="mb-1 text-xs font-bold text-crm-fg-muted">Variación de {capitalMetricLabel(metric).toLowerCase()} vs. mes anterior</p><Difference value={capitalChange(row, rowsByPeriod.get(shiftCapitalPeriod(row.period, -1)), currency, basis, metric)} currency={currency}/></div><CrmButton type="button" variant="secondary" size="sm" onClick={() => setDetail(row)} disabled={loading}>Ver composición<ChevronDown size={14}/></CrmButton></div>
+                        {isReconstructedCapital(row) && <p className="text-xs font-bold text-crm-fg-muted">Subtotales históricos respaldados · {currency}</p>}<StockAmounts row={row} currency={currency} basis={basis}/>
+                        {isReconstructedCapital(row) && <RecoveryDetails row={row} currency={currency} basis={basis} showDates={false}/>}
+                        <div className="flex flex-wrap items-start justify-between gap-4 border-t border-crm-border pt-4"><div><p className="text-xs font-bold text-crm-fg-muted">Capital propio neto · {currency}</p><p className="mt-1 text-base font-bold text-crm-fg">{isReconstructedCapital(row) ? 'No reconstruido · Solo Stock' : capitalMoney(capitalValue(row, currency, basis), currency)}</p></div><div><p className="mb-1 text-xs font-bold text-crm-fg-muted">Variación de {capitalMetricLabel(metric).toLowerCase()} vs. mes anterior</p><Difference value={capitalChange(row, rowsByPeriod.get(shiftCapitalPeriod(row.period, -1)), currency, basis, metric)} currency={currency}/></div><CrmButton type="button" variant="secondary" size="sm" onClick={() => setDetail(row)} disabled={loading}>{isReconstructedCapital(row) ? 'Ver recuperación' : 'Ver composición'}<ChevronDown size={14}/></CrmButton></div>
                     </>}
                 </article>)}
             </section>
         </>}
+        {recoveryOpen && <CrmModal isOpen onClose={closeRecovery} hideCloseButton={recovering} title="Recuperar stock histórico" maxWidth="max-w-5xl" footer={<div className="flex flex-wrap justify-end gap-2"><CrmButton type="button" variant="ghost" disabled={recovering} onClick={closeRecovery}>Volver</CrmButton><CrmButton type="button" variant="secondary" disabled={!validRecoveryRange || recoveryLoading || recovering} onClick={loadRecovery}>{recoveryLoading ? 'Consultando…' : 'Actualizar vista previa'}</CrmButton><CrmButton type="button" disabled={recoveryLoading || recovering || !recoveryPlan?.planId || !recoveryPlan.importablePeriods?.length} onClick={recover}>{recovering ? 'Guardando recuperación…' : `Guardar recuperación${recoveryPlan?.importablePeriods?.length ? ` · ${recoveryPlan.importablePeriods.length} meses` : ''}`}</CrmButton></div>}><div className="space-y-4 p-4 sm:p-5">
+            <p className="text-sm text-crm-fg-muted">Revisá los cortes y la evidencia antes de guardar. La recuperación está disponible desde mayo de 2026, cuando se incorporó el stock real al CRM.</p>
+            <div className="flex flex-wrap gap-3"><label className="space-y-1.5 text-xs font-bold text-crm-fg-muted"><span className="block">Recuperar desde</span><input type="month" aria-label="Recuperar desde" min="2026-05" max={recoveryTo || period} value={recoveryFrom} disabled={recoveryLoading || recovering} onChange={event => { setRecoveryFrom(event.target.value); setRecoveryPlan(null); setRecoveryError(''); }} className={inputClass}/></label><label className="space-y-1.5 text-xs font-bold text-crm-fg-muted"><span className="block">Recuperar hasta</span><input type="month" aria-label="Recuperar hasta" min={recoveryFrom || '2026-05'} max={period} value={recoveryTo} disabled={recoveryLoading || recovering} onChange={event => { setRecoveryTo(event.target.value); setRecoveryPlan(null); setRecoveryError(''); }} className={inputClass}/></label></div>
+            {!validRecoveryRange && <p role="alert" className="text-sm text-red-300">Elegí un rango entre mayo de 2026 y el mes actual.</p>}
+            {recoveryLoading && <p role="status" className="flex items-center gap-2 text-sm text-crm-fg-muted"><Loader2 size={16} className="animate-spin"/>Buscando evidencia histórica y preparando los cortes…</p>}
+            {recoveryError && <p role="alert" className="rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-sm text-red-300">{recoveryError}</p>}
+            {recoveryPlan && <RecoveryPreview plan={recoveryPlan} basis={basis}/>}
+        </div></CrmModal>}
         {captureOpen && current && <CrmModal isOpen onClose={closeCapture} hideCloseButton={capturing} title="Guardar capital actual" maxWidth="max-w-3xl" footer={<div className="flex flex-wrap justify-end gap-2"><CrmButton type="button" variant="ghost" disabled={capturing} onClick={closeCapture}>Volver</CrmButton><CrmButton type="submit" form="capture-capital" disabled={capturing}>{capturing ? 'Guardando…' : 'Confirmar registro'}</CrmButton></div>}><form id="capture-capital" onSubmit={capture} className="space-y-4 p-4 sm:p-5"><p className="text-sm font-bold">{capitalPeriodLabel(current.period)} · Capital en Stock · {currency}</p><StockAmounts row={current} currency={currency} basis={basis}/><p className="text-sm text-crm-fg-muted">El registro guarda por separado el total de Stock, tu parte, la de los inversionistas y la participación por verificar, a costo y a precio publicado, en ARS y USD. También conserva el capital propio neto y su composición.</p><p className="text-xs text-crm-fg-muted">Consultado: {capitalMoment(current.asOf)} · Hora argentina. Se calcula nuevamente en el servidor al confirmar.</p>{stockQuality.partial && <p className="flex gap-2 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-xs text-amber-200"><AlertCircle size={16} className="shrink-0"/>El registro conservará la advertencia de datos parciales y los subtotales conocidos.</p>}{captureError && <p role="alert" className="rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-sm text-red-300">{captureError}</p>}</form></CrmModal>}
         {detail && <CrmModal isOpen onClose={closeDetail} title="Composición del capital" maxWidth="max-w-3xl"><div className="p-4 sm:p-5"><Components row={detail} currency={currency} basis={basis}/></div></CrmModal>}
     </div>;

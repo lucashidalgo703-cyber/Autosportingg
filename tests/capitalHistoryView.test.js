@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { capitalRows, capitalChange, capitalValue, capitalQuality, capitalComponents, capitalMetricLabel, capitalStatusLabel, capitalStockBreakdown, shiftCapitalPeriod, capitalMoney } from '../src/utils/capitalHistoryView.js';
+import { capitalRows, capitalChange, capitalValue, capitalQuality, capitalComponents, capitalMetricLabel, capitalMoment, capitalStatusLabel, capitalStockBreakdown, capitalRecoveryCoverage, isReconstructedCapital, shiftCapitalPeriod, capitalMoney } from '../src/utils/capitalHistoryView.js';
 
 const row = (period, ars, usd, extra = {}) => ({ period, status: 'closed', formulaVersion: 'capital-summary-v1',
     totalsByCurrency: { ARS: { capitalPropioCosto: ars, capitalPropioPublicado: ars + 500 }, USD: { capitalPropioCosto: usd, capitalPropioPublicado: usd + 5 } },
@@ -68,4 +68,29 @@ assert.equal(capitalChange(splitPartial, splitJune, 'ARS', 'cost', 'stockTotal')
 const splitNewVersion = structuredClone(splitJuly); splitNewVersion.stockCapital.version = 'available-stock-v2';
 assert.equal(capitalChange(splitNewVersion, splitJune, 'ARS', 'cost', 'stockTotal').status, 'incompatible');
 assert.deepEqual(splitJuly, originalSplit, 'Changing metrics and rendering values never modifies an observation');
+const recovered = { ...structuredClone(splitJuly), source: 'reconstructed', capturedAt: '2026-11-24T20:00:00.000Z', asOf: '2026-08-01T02:59:59.999Z',
+    recovery: { cutoffAt: '2026-08-01T02:59:59.999Z', coverage: { availableVehicles: 3, availableSupported: 2, availableInferred: 1,
+        missingCostVehicles: 0, missingPriceVehicles: null, unrelated: 999, undatedExpenses: -1 } } };
+const originalRecovered = structuredClone(recovered);
+assert.equal(isReconstructedCapital(recovered), true);
+assert.equal(isReconstructedCapital(splitJuly), false);
+assert.equal(capitalValue(recovered, 'ARS', 'cost', 'stockTotal'), 1100, 'Only the recorded historical stock subtotal is displayed');
+assert.equal(capitalValue(recovered, 'ARS', 'cost', 'net'), null, 'A stock reconstruction can never claim a net capital total');
+assert.equal(capitalValue(recovered, 'USD', 'published', 'net'), null);
+assert.deepEqual(capitalComponents({ ...recovered, components: composition.components }, 'ARS'), [], 'Current cash or debts cannot leak into recovered history');
+for (const metric of ['stockTotal', 'stockOwn', 'stockInvestors', 'stockUnallocated', 'net']) {
+    assert.equal(capitalQuality(recovered, 'cost', metric).partial, true, 'Reconstructed data never becomes an observed complete point in the chart');
+    assert.equal(capitalQuality(recovered, 'published', metric).partial, true);
+}
+assert.deepEqual(capitalChange(recovered, splitJune, 'ARS', 'cost', 'stockTotal'), { status: 'partial' });
+assert.deepEqual(capitalChange({ ...splitJuly, period: '2026-08' }, recovered, 'ARS', 'cost', 'stockTotal'), { status: 'partial' }, 'No growth is calculated against a reconstructed baseline');
+assert.match(capitalStatusLabel(recovered), /Stock reconstruido/);
+assert.deepEqual(capitalRecoveryCoverage(recovered).map(item => [item.key, item.count]), [
+    ['availableVehicles', 3], ['availableSupported', 2], ['availableInferred', 1], ['missingCostVehicles', 0]
+], 'Coverage preserves genuine zeros and omits absent, invalid or unknown fields');
+const noHistoricalAmount = structuredClone(recovered); noHistoricalAmount.stockCapital.byCurrency.ARS.cost.total = null;
+noHistoricalAmount.recovery.estimates = { stockCapital: splitJuly.stockCapital };
+assert.equal(capitalValue(noHistoricalAmount, 'ARS', 'cost', 'stockTotal'), null, 'An estimate must never replace a missing documented historical subtotal');
+assert.equal(capitalMoment(recovered.asOf) === capitalMoment(recovered.capturedAt), false, 'Cutoff and recovery dates remain separate');
+assert.deepEqual(recovered, originalRecovered, 'Recovery presentation never rewrites stored observations');
 console.log('PASS: monthly capital currencies, gaps, recorded/live separation, quality and formula comparability, nonpositive bases and composition.');

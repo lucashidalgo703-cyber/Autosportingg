@@ -84,7 +84,8 @@ function currentStockComparison(metrics) {
 }
 const observationDto = (doc, currentPeriod) => ({ id: String(doc._id), period: doc.period,
     status: doc.period < currentPeriod ? 'closed' : 'recorded', capturedAt: doc.capturedAt, source: doc.source,
-    sourceLabel: doc.source === 'cron' ? 'Registro automático' : 'Registro manual del propietario',
+    sourceLabel: doc.source === 'reconstructed' ? 'Stock reconstruido' : doc.source === 'cron' ? 'Registro automático' : 'Registro manual del propietario',
+    ...(doc.source === 'reconstructed' ? { asOf: doc.asOf, recovery: doc.recovery } : {}),
     formulaVersion: doc.formulaVersion, totalsByCurrency: doc.totalsByCurrency, stockCapital: doc.stockCapital ?? null,
     components: doc.components, quality: doc.quality });
 let prepared;
