@@ -41,7 +41,25 @@ export default function AdminStockPage() {
 
 function RestrictedStockPage({ user }) {
     const [intakeOpen, setIntakeOpen] = useState(false);
-    const [sellerTab, setSellerTab] = useState('checklist'); // 'checklist' | 'prioridades' | 'negotiation'
+    const [sellerTab, setSellerTab] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam === 'negotiation' || tabParam === 'inventory') return 'negotiation';
+            if (tabParam === 'prioridades') return 'prioridades';
+            if (tabParam === 'checklist' || tabParam === 'equipamiento') return 'checklist';
+        }
+        return 'checklist';
+    });
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        if (tabParam === 'negotiation' || tabParam === 'inventory') setSellerTab('negotiation');
+        else if (tabParam === 'prioridades') setSellerTab('prioridades');
+        else if (tabParam === 'checklist' || tabParam === 'equipamiento') setSellerTab('checklist');
+    }, []);
 
     return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
         <CrmPageHeader 

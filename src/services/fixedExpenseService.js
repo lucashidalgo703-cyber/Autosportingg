@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import FixedExpense from '../models/FixedExpense.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
+import { applyLinkedExpenseTreasury, reverseLinkedExpenseTreasury } from './linkedExpenseTreasuryService.js';
 
 export function getMonthPeriod(date = new Date()) {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -12,7 +13,7 @@ export function getMonthPeriod(date = new Date()) {
 
 function validPeriod(value = getMonthPeriod()) {
     if (typeof value !== 'string' || !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(value)) {
-        throw new Error('El período debe tener el formato AAAA-MM y un mes válido');
+        throw Object.assign(new Error('El período debe tener el formato AAAA-MM y un mes válido'), { status: 400 });
     }
     return value;
 }
@@ -25,7 +26,17 @@ function validAmount(value, allowZero = false) {
     if (!Number.isFinite(amount) || amount < 0 || (!allowZero && amount === 0)) {
         throw new Error(allowZero ? 'El monto debe ser un número mayor o igual a 0' : 'El monto debe ser mayor a 0');
     }
-    return amount;
+    if (amount > 1e12 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.0001) {
+        throw new Error('El monto admite hasta dos decimales y un máximo de 1.000.000.000.000');
+    }
+    return Math.round(amount * 100) / 100;
+}
+
+function validName(value) {
+    if (typeof value !== 'string' || !value.trim()) throw new Error('El nombre del gasto fijo es requerido');
+    const name = value.trim();
+    if (name.length > 200) throw new Error('El nombre del gasto fijo admite hasta 200 caracteres');
+    return name;
 }
 
 function validDay(value = 10) {
@@ -77,7 +88,7 @@ export async function getFixedExpensesForPeriod(periodStr) {
     const period = validPeriod(periodStr);
     // Disabled rules remain visible in every month already recorded.
     const rules = await FixedExpense.find({ $or: [{ isActive: true }, { 'instances.period': period }] })
-        .populate('defaultAccountId', 'name currency balance').sort({ dueDay: 1, name: 1 });
+        .populate('defaultAccountId', 'name currency balance').populate('instances.accountId', 'name').sort({ dueDay: 1, name: 1 });
     const items = [];
     const summary = {
         ars: { total: 0, paid: 0, pending: 0 }, usd: { total: 0, paid: 0, pending: 0 },
@@ -91,8 +102,8 @@ export async function getFixedExpensesForPeriod(periodStr) {
             const updated = await FixedExpense.findOneAndUpdate({
                 _id: rule._id, isActive: true, 'instances.period': { $ne: period }
             }, { $push: { instances: newInstance(rule, period) } }, { new: true });
-            if (updated) { rule = await updated.populate('defaultAccountId', 'name currency balance'); wasAutoLoaded = true; }
-            else rule = await FixedExpense.findById(rule._id).populate('defaultAccountId', 'name currency balance');
+            if (updated) { rule = await updated.populate([{ path: 'defaultAccountId', select: 'name currency balance' }, { path: 'instances.accountId', select: 'name' }]); wasAutoLoaded = true; }
+            else rule = await FixedExpense.findById(rule._id).populate('defaultAccountId', 'name currency balance').populate('instances.accountId', 'name');
             instance = rule?.instances.find(item => item.period === period);
         }
         if (!instance) continue;
@@ -101,18 +112,18 @@ export async function getFixedExpensesForPeriod(periodStr) {
         const amount = Number(instance.amount);
         if (instance.status === 'anulado') summary.counts.annulled++;
         else {
-            totals.total += amount;
+            totals.total = Math.round((totals.total + amount) * 100) / 100;
             summary.counts.total++;
-            if (instance.status === 'pagado') { totals.paid += amount; summary.counts.paid++; }
-            else { totals.pending += amount; summary.counts.pending++; }
+            if (instance.status === 'pagado') { totals.paid = Math.round((totals.paid + amount) * 100) / 100; summary.counts.paid++; }
+            else { totals.pending = Math.round((totals.pending + amount) * 100) / 100; summary.counts.pending++; }
         }
         items.push({
             ruleId: rule._id, instanceId: instance._id, name: instance.name || rule.name,
             category: instance.category || rule.category, currency, baseAmount: rule.amount,
             amount: instance.amount, dueDay: instance.dueDay || rule.dueDay, dueDate: instance.dueDate,
             status: instance.status, paidAt: instance.paidAt, paidAmount: instance.paidAmount,
-            paymentMethod: instance.paymentMethod, accountId: instance.accountId || rule.defaultAccountId?._id,
-            accountName: rule.defaultAccountId?.name, notes: instance.notes,
+            paymentMethod: instance.paymentMethod, accountId: instance.accountId?._id || instance.accountId || rule.defaultAccountId?._id,
+            accountName: instance.accountId?.name || (instance.accountId ? undefined : rule.defaultAccountId?.name), notes: instance.notes,
             isModified: Boolean(instance.isModified), wasAutoLoaded, isActive: rule.isActive
         });
     }
@@ -130,12 +141,12 @@ async function validateAccount(accountId, currency, session) {
 }
 
 export async function createFixedExpense(payload, user = 'System') {
-    if (typeof payload.name !== 'string' || !payload.name.trim()) throw new Error('El nombre del gasto fijo es requerido');
+    const name = validName(payload.name);
     const period = validPeriod(payload.period ?? payload.startPeriod);
     const currency = validCurrency(payload.currency);
     if (payload.defaultAccountId) await validateAccount(payload.defaultAccountId, currency);
     const rule = new FixedExpense({
-        name: payload.name.trim(), category: typeof payload.category === 'string' && payload.category.trim() || 'Servicios',
+        name, category: typeof payload.category === 'string' && payload.category.trim() || 'Servicios',
         amount: validAmount(payload.amount), currency, dueDay: validDay(payload.dueDay),
         defaultAccountId: payload.defaultAccountId || undefined, notes: payload.notes || '',
         startPeriod: period, createdBy: user, updatedBy: user
@@ -152,7 +163,10 @@ async function reversePayment(instance, user, session) {
     if (transaction.status !== 'anulado') {
         const account = await Account.findById(transaction.accountId).session(session);
         if (!account) throw new Error('No se encontró la cuenta del pago; no se pudo revertir');
+        if (transaction.linkedExpenseTreasuryEffect?.recorded) await reverseLinkedExpenseTreasury(transaction, { session, user });
+        else if (transaction.isTreasuryExpenseSynced) throw new Error('El efecto del pago en Tesorería necesita una revisión antes de revertirse');
         transaction.status = 'anulado';
+        transaction.accountDebitApplied = false;
         transaction.updatedBy = user;
         transaction.notes = (transaction.notes || '') + ' (Anulado al revertir gasto fijo)';
         await transaction.save({ session });
@@ -165,10 +179,19 @@ async function reversePayment(instance, user, session) {
 export async function updateFixedExpenseMonthlyInstance(ruleId, periodStr, updates, user = 'System') {
     const period = validPeriod(periodStr);
     const amount = updates.amount === undefined ? undefined : validAmount(updates.amount, true);
+    const name = updates.name === undefined ? undefined : validName(updates.name);
+    if (updates.applyNameToFuture !== undefined) {
+        if (typeof updates.applyNameToFuture !== 'boolean') throw new Error('La opción de aplicar el nombre a los próximos meses debe ser verdadera o falsa');
+        if (name === undefined) throw new Error('Ingresá el nombre del gasto para aplicar el cambio a los próximos meses');
+    }
     if (updates.status !== undefined && !['pagado', 'pendiente', 'anulado'].includes(updates.status)) throw new Error('Estado inválido');
     if (updates.registerMovement !== undefined && typeof updates.registerMovement !== 'boolean') throw new Error('La opción de movimiento debe ser verdadera o falsa');
     let paidAt;
     if (updates.paidAt !== undefined) {
+        if (typeof updates.paidAt !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(updates.paidAt)) throw new Error('La fecha de pago no es válida');
+        const calendar = updates.paidAt.slice(0, 10);
+        const calendarDate = new Date(calendar + 'T15:00:00Z');
+        if (!Number.isFinite(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 10) !== calendar) throw new Error('La fecha de pago no es válida');
         paidAt = new Date(updates.paidAt);
         if (!Number.isFinite(paidAt.getTime())) throw new Error('La fecha de pago no es válida');
     }
@@ -188,7 +211,16 @@ export async function updateFixedExpenseMonthlyInstance(ruleId, periodStr, updat
         }
         if (amount !== undefined) { instance.amount = amount; instance.isModified = true; }
         if (updates.notes !== undefined) instance.notes = updates.notes;
-        if (nextStatus === 'pagado' && instance.status !== 'pagado') {
+        if (name !== undefined) {
+            instance.name = name;
+            if (updates.applyNameToFuture) {
+                rule.name = name;
+                for (const futureInstance of rule.instances) {
+                    if (futureInstance.period > period) futureInstance.name = name;
+                }
+            }
+        }
+        if (updates.status !== undefined && nextStatus === 'pagado' && instance.status !== 'pagado') {
             const account = updates.registerMovement ? await validateAccount(updates.accountId, instance.currency, session) : null;
             instance.paidAt = paidAt || new Date();
             instance.paidAmount = instance.amount;
@@ -205,11 +237,14 @@ export async function updateFixedExpenseMonthlyInstance(ruleId, periodStr, updat
                 });
                 transaction.idempotencyKey = 'fixed-expense:' + rule._id + ':' + period + ':' + transaction._id;
                 await transaction.save({ session });
+                await applyLinkedExpenseTreasury(transaction, { session, user });
+                transaction.accountDebitApplied = true;
+                await transaction.save({ session });
                 account.balance -= instance.amount;
                 await account.save({ session });
                 instance.transactionId = transaction._id;
             }
-        } else if (nextStatus !== 'pagado') {
+        } else if (updates.status !== undefined && nextStatus !== 'pagado') {
             await reversePayment(instance, user, session);
             instance.paidAt = undefined;
             instance.paidAmount = 0;
@@ -229,8 +264,7 @@ export async function updateMasterFixedExpense(ruleId, updates, user = 'System')
         if (!rule) throw new Error('Gasto fijo no encontrado');
         preserveSnapshots(rule);
         if (updates.name !== undefined) {
-            if (typeof updates.name !== 'string' || !updates.name.trim()) throw new Error('El nombre del gasto fijo es requerido');
-            rule.name = updates.name.trim();
+            rule.name = validName(updates.name);
         }
         if (updates.category !== undefined) {
             if (typeof updates.category !== 'string' || !updates.category.trim()) throw new Error('La categoría es requerida');

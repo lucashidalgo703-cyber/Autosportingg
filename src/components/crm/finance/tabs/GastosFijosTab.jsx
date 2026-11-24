@@ -526,32 +526,32 @@ export default function GastosFijosTab({ accounts = [], onUpdated }) {
                                             <td className="py-3 px-4 text-right">
                                                 {canWrite && <div className="flex items-center justify-end gap-1.5" inert={submitting || undefined}>
                                                     {isPending && (
-                                                        <>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setPayModalItem(item)}
-                                                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition shadow-sm cursor-pointer"
-                                                                title="Pagar gasto fijo"
-                                                            >
-                                                                Pagar
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setModifyMonthItem(item)}
-                                                                className="px-2 py-1 rounded-lg border border-crm-border bg-crm-surface-raised hover:bg-neutral-700 text-neutral-300 hover:text-white font-semibold text-[11px] transition cursor-pointer"
-                                                                title="Modificar importe de este mes"
-                                                            >
-                                                                Modificar
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setConfirmAnnulItem(item)}
-                                                                className="px-2 py-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-semibold transition cursor-pointer"
-                                                                title="Anular gasto este mes"
-                                                            >
-                                                                Anular
-                                                            </button>
-                                                        </>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPayModalItem(item)}
+                                                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition shadow-sm cursor-pointer"
+                                                            title="Pagar gasto fijo"
+                                                        >
+                                                            Pagar
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setModifyMonthItem(item)}
+                                                        className="px-2 py-1 rounded-lg border border-crm-border bg-crm-surface-raised hover:bg-neutral-700 text-neutral-300 hover:text-white font-semibold text-[11px] transition cursor-pointer"
+                                                        title={isPending ? 'Modificar nombre, importe o notas del gasto' : 'Modificar nombre y notas del gasto'}
+                                                    >
+                                                        Modificar
+                                                    </button>
+                                                    {isPending && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setConfirmAnnulItem(item)}
+                                                            className="px-2 py-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-semibold transition cursor-pointer"
+                                                            title="Anular gasto este mes"
+                                                        >
+                                                            Anular
+                                                        </button>
                                                     )}
 
                                                     {isPaid && (
@@ -607,15 +607,15 @@ export default function GastosFijosTab({ accounts = [], onUpdated }) {
                 />
             )}
 
-            {/* Modal: Modificar Importe de este Mes */}
+            {/* Modal: Modificar Gasto Fijo */}
             {modifyMonthItem && (
                 <ModifyMonthExpenseModal
                     isOpen={Boolean(modifyMonthItem)}
                     onClose={() => setModifyMonthItem(null)}
                     item={modifyMonthItem}
                     period={period}
-                    onSave={async (newAmount, notes) => {
-                        if (await handleUpdateMonth(modifyMonthItem.ruleId, { amount: newAmount, notes })) setModifyMonthItem(null);
+                    onSave={async updates => {
+                        if (await handleUpdateMonth(modifyMonthItem.ruleId, updates)) setModifyMonthItem(null);
                     }}
                 />
             )}
@@ -871,28 +871,39 @@ function CreateFixedExpenseModal({ isOpen, onClose, accounts = [], onCreated, pe
 }
 
 // ----------------------------------------------------
-// Modal 2: Modificar Importe de este Mes
+// Modal 2: Modificar Gasto Fijo
 // ----------------------------------------------------
 function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
+    const [name, setName] = useState(item?.name || '');
+    const [applyNameToFuture, setApplyNameToFuture] = useState(true);
     const [amount, setAmount] = useState(item?.amount ?? '');
     const [notes, setNotes] = useState(item?.notes || '');
     const [submitting, setSubmitting] = useState(false);
 
     if (!isOpen || !item) return null;
+    const nameChanged = name.trim() !== item.name;
+    const canEditAmount = item.status === 'pendiente';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (amount === '' || !Number.isFinite(Number(amount)) || Number(amount) < 0) return toast.error('Ingresá un monto válido');
+        if (submitting) return;
+        if (!name.trim()) return toast.error('Ingresá el nombre del gasto');
+        if (canEditAmount && (amount === '' || !Number.isFinite(Number(amount)) || Number(amount) < 0)) return toast.error('Ingresá un monto válido');
+        const updates = {};
+        if (nameChanged) Object.assign(updates, { name: name.trim(), applyNameToFuture });
+        if (canEditAmount && Number(amount) !== Number(item.amount)) updates.amount = Number(amount);
+        if (notes !== (item.notes || '')) updates.notes = notes;
+        if (!Object.keys(updates).length) return onClose();
         setSubmitting(true);
         try {
-            await onSave(Number(amount), notes);
+            await onSave(updates);
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div role="dialog" aria-modal="true" aria-label="Modificar importe del mes" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Modificar gasto fijo" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
                 <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
                     <div className="flex items-center gap-2">
@@ -900,7 +911,7 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
                             <Edit2 size={16} />
                         </div>
                         <div>
-                            <h3 className="text-base font-black text-white">Modificar Monto</h3>
+                            <h3 className="text-base font-black text-white">Modificar Gasto Fijo</h3>
                             <p className="text-[11px] text-crm-fg-subtle">Período {period}</p>
                         </div>
                     </div>
@@ -911,9 +922,35 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
 
                 <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                     <div>
-                        <span className="text-[11px] font-bold text-crm-fg-muted uppercase block mb-1">Gasto:</span>
-                        <p className="text-sm font-bold text-white">{item.name}</p>
-                        <p className="text-[11px] text-crm-fg-subtle mt-0.5">Base pactada: {item.currency} {Number(item.baseAmount).toLocaleString('es-AR')}</p>
+                        <label className="block text-[11px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">
+                            Nombre del gasto *
+                        </label>
+                        <input
+                            type="text"
+                            aria-label="Nombre del gasto"
+                            required
+                            maxLength={200}
+                            value={name}
+                            onChange={event => setName(event.target.value)}
+                            className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-crm-red transition"
+                            autoFocus
+                        />
+                    </div>
+
+                    <div>
+                        <label className="flex items-start gap-2 text-xs text-crm-fg cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={applyNameToFuture}
+                                disabled={!nameChanged || submitting}
+                                onChange={event => setApplyNameToFuture(event.target.checked)}
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-crm-border bg-crm-bg text-crm-red"
+                            />
+                            <span>Aplicar el nombre también a los próximos meses</span>
+                        </label>
+                        <p className="mt-1 text-[11px] text-crm-fg-subtle">
+                            {applyNameToFuture ? 'El historial de los meses anteriores se conserva.' : 'El cambio de nombre se guardará solo en este mes.'}
+                        </p>
                     </div>
 
                     <div>
@@ -927,10 +964,11 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
                             min="0"
                             step="0.01"
                             value={amount}
+                            disabled={!canEditAmount || submitting}
                             onChange={(e) => setAmount(e.target.value)}
                             className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-crm-red transition font-mono font-bold"
-                            autoFocus
                         />
+                        {!canEditAmount && <p className="mt-1 text-[11px] text-crm-fg-subtle">Podés corregir el nombre y las notas conservando el importe y el estado.</p>}
                     </div>
 
                     <div>
@@ -949,6 +987,7 @@ function ModifyMonthExpenseModal({ isOpen, onClose, item, period, onSave }) {
                     <div className="pt-3 border-t border-crm-border flex justify-end gap-2">
                         <button
                             type="button"
+                            disabled={submitting}
                             onClick={onClose}
                             className="px-4 py-2 rounded-xl text-xs font-bold text-crm-fg-muted hover:text-white hover:bg-crm-surface-raised transition cursor-pointer"
                         >

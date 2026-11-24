@@ -344,6 +344,7 @@ export const roleAccessSummary = user => {
     add(canReadRentabilidad(user), 'Rentabilidad', 'Rentabilidad real por vehículo, análisis de márgenes, rotación y eficiencia de capital');
     add(permission(PERMISSIONS.CLIENTES_READ), 'Clientes', user.role === ROLES.VENTAS
         ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
+    add(true, 'Equipamiento', 'Control y carga de equipamiento de vehículos en stock');
     add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : canCompleteStockPlate(user) ? 'Consulta, simulación y carga del dominio cuando falta' : 'Consulta y simulación de ofertas');
     add(permission(PERMISSIONS.STOCK_READ), 'Inventario de Stock', writeDetail(PERMISSIONS.STOCK_WRITE));
     add(permission(PERMISSIONS.STOCK_SUBMIT) && user.role === ROLES.VENTAS, 'Solicitar alta de vehículo', 'No ingresa al Stock hasta la aprobación del propietario');

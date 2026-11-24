@@ -71,6 +71,7 @@ export default function FinanceNavigation({ tabs = [], activeTab, onTabChange })
                     <span className="mb-1 block">Área de Finanzas</span>
                     <select
                         value={selectedGroup.id}
+                        aria-label="Área de Finanzas"
                         onChange={event => {
                             const group = groups.find(item => item.id === event.target.value);
                             if (group) onTabChange(group.tabs[0].id);
@@ -85,6 +86,7 @@ export default function FinanceNavigation({ tabs = [], activeTab, onTabChange })
                         <span className="mb-1 block">Apartado de Finanzas</span>
                         <select
                             value={selectedTab.id}
+                            aria-label="Apartado de Finanzas"
                             onChange={event => onTabChange(event.target.value)}
                             className="h-10 w-full min-w-0 rounded-lg border border-crm-border bg-crm-surface-raised px-3 text-sm font-semibold text-crm-fg focus:border-crm-red focus:outline-none"
                         >

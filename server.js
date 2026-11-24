@@ -118,6 +118,9 @@ import { stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
 
 const app = express();
+const isFixedExpenseMovement = transaction => String(transaction.idempotencyKey || '').startsWith('fixed-expense:')
+    || String(transaction.notes || '').includes('[GASTO_FIJO:');
+const fixedExpenseMutationMessage = 'Este movimiento corresponde a un gasto fijo. Cambiá su estado desde Finanzas > Gastos Fijos para conservar el historial y los saldos.';
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
 
@@ -4595,6 +4598,7 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
     try {
         const tx = await Transaction.findById(req.params.id);
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (isFixedExpenseMovement(tx)) return res.status(409).json({ message: fixedExpenseMutationMessage });
         if (await CollectionRecordingOperation.exists({ transactionId: tx._id })) {
             return res.json(await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' }));
         }
@@ -7322,6 +7326,9 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
             return res.status(400).json({ message: 'No se proporcionaron IDs' });
         }
 
+        const selectedTransactions = await Transaction.find({ _id: { $in: ids }, module: 'crm_v2' }).select('idempotencyKey notes');
+        if (selectedTransactions.some(isFixedExpenseMovement)) return res.status(409).json({ message: fixedExpenseMutationMessage });
+
         try {
             const linkedResult = await annulLinkedExpenseBatch({ ids, user: req.user, req });
             if (linkedResult) return res.json(linkedResult);
@@ -7378,6 +7385,7 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
         await connectDB();
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (isFixedExpenseMovement(tx)) return res.status(409).json({ message: fixedExpenseMutationMessage });
         if (await CollectionRecordingOperation.exists({ transactionId: tx._id })) {
             return res.json(await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' }));
         }
@@ -7629,6 +7637,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
+        if (isFixedExpenseMovement(tx)) return res.status(409).json({ message: fixedExpenseMutationMessage });
         if (await CollectionRecordingOperation.exists({ transactionId: tx._id }) || await BuyerPaymentProof.exists({ transactionId: tx._id })) {
             const same = (a, b) => String(a ?? '') === String(b ?? '');
             const financialFields = ['amount', 'currency', 'type', 'accountId', 'saleId', 'reservationId', 'clientId', 'vehicleId', 'installmentId', 'gestoriaId', 'paymentDestination', 'paymentSplits'];
@@ -13996,7 +14005,7 @@ app.get('/api/admin/finance/fixed-expenses', authenticateToken, requirePermissio
         res.json({ ok: true, ...data });
     } catch (error) {
         console.error('GET /api/admin/finance/fixed-expenses error:', error);
-        res.status(400).json({ ok: false, message: error.message });
+        res.status(error.status || 500).json({ ok: false, message: error.message });
     }
 });
 

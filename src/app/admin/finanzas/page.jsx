@@ -130,6 +130,7 @@ function FinanzasPage() {
     const { fetchInstallments, createInstallment, loading: installmentsLoading, payInstallment } = useAdminInstallments();
     const { fetchAccounts, createAccount, updateAccount, deleteAccount, recalculateBalances, loading: accountsLoading } = useAdminAccounts();
     const [allTransactions, setAllTransactions] = useState([]);
+    const [initialDataLoaded, setInitialDataLoaded] = useState(false);
     const [accounts, setAccounts] = useState([]);
     const [installments, setInstallments] = useState([]);
     const [activeTab, setActiveTab] = useState('resumen');
@@ -231,20 +232,24 @@ function FinanzasPage() {
     };
 
     const loadData = async () => {
-        const [transactionsData, depositsData, installmentsData, accountsData] = await Promise.all([
-            fetchTransactions(),
-            fetchFinanceDeposits(),
-            fetchInstallments(),
-            fetchAccounts()
-        ]);
-        setAllTransactions(transactionsData || []);
-        setFinanceDeposits(depositsData || EMPTY_DEPOSIT_DATA);
-        setInstallments(installmentsData || []);
-        setAccounts(accountsData || []);
+        try {
+            const [transactionsData, depositsData, installmentsData, accountsData] = await Promise.all([
+                fetchTransactions(),
+                fetchFinanceDeposits(),
+                fetchInstallments(),
+                fetchAccounts()
+            ]);
+            setAllTransactions(transactionsData || []);
+            setFinanceDeposits(depositsData || EMPTY_DEPOSIT_DATA);
+            setInstallments(installmentsData || []);
+            setAccounts(accountsData || []);
+        } finally {
+            setInitialDataLoaded(true);
+        }
     };
 
     useEffect(() => {
-        loadData();
+        loadData().catch(error => toast.error(error.message || 'No se pudo cargar Finanzas'));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -464,7 +469,7 @@ function FinanzasPage() {
 
                 <FinanceNavigation tabs={FINANCE_TABS} activeTab={activeTab} onTabChange={setActiveTab}/>
 
-                {transactionsLoading && allTransactions.length === 0 ? (
+                {!initialDataLoaded ? (
                     <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-t-crm-red" />
                     </div>

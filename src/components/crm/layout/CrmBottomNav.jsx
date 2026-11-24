@@ -11,6 +11,7 @@ export default function CrmBottomNav({ isHidden = false }) {
 
     const navItems = (isSales ? [
         { name: 'Negociación', path: '/admin/stock', icon: '🚗' },
+        { name: 'Equipamiento', path: '/admin/equipamiento', icon: '📋' },
         { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
         { name: 'Mis Ventas', path: '/admin/mis-ventas', icon: '🏆' },
         { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
