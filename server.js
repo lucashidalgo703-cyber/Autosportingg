@@ -34,6 +34,7 @@ import Transaction from './src/models/Transaction.js';
 import Reservation from './src/models/Reservation.js';
 import Sale from './src/models/Sale.js';
 import Installment from './src/models/Installment.js';
+import { buildMonthlyPlan } from './src/services/monthlyInstallmentPlan.js';
 import CrmTask from './src/models/CrmTask.js';
 import AdminUser from './src/models/AdminUser.js';
 import AuditLog from './src/models/AuditLog.js';
@@ -8061,7 +8062,8 @@ app.get('/api/admin/installments/monthly', authenticateToken, requirePermission(
                     const txDate = new Date(tx.date || tx.createdAt);
                     return txDate >= startOfMonth && txDate <= endOfMonth;
                 });
-                const hasPaidDateInMonth = inst.paidDate && (new Date(inst.paidDate) >= startOfMonth && new Date(inst.paidDate) <= endOfMonth);
+                const paidDate = inst.paidDate || inst.paymentDate;
+                const hasPaidDateInMonth = paidDate && (new Date(paidDate) >= startOfMonth && new Date(paidDate) <= endOfMonth);
                 return hasTxInMonth || hasPaidDateInMonth;
             } else {
                 return origDue >= startOfMonth && origDue <= endOfMonth;
@@ -8234,6 +8236,101 @@ app.get('/api/admin/installments/:id', authenticateToken, requirePermission(PERM
     } catch (error) {
         console.error('Error fetching installment details:', error);
         res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/installments/monthly-plan', authenticateToken,
+    requirePermission(PERMISSIONS.FINANZAS_WRITE), requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
+    const input = req.body ?? {};
+    const { clientId, planId } = input;
+    if (![clientId, planId].every(id => typeof id === 'string' && mongoose.isValidObjectId(id))) {
+        return res.status(400).json({ message: 'Seleccioná un cliente del CRM y volvé a intentar.' });
+    }
+    let schedule;
+    try {
+        schedule = buildMonthlyPlan(input);
+    } catch (error) {
+        return res.status(400).json({ message: error.message });
+    }
+    try {
+        await connectDB();
+        const client = await Client.findById(clientId).select('fullName firstName lastName phone').lean();
+        if (!client) return res.status(404).json({ message: 'El cliente ya no está disponible.' });
+        const author = req.user.email || req.user.role;
+        const existing = async () => {
+            const rows = await Installment.find({ monthlyPlanId: planId }).sort({ installmentNumber: 1 }).lean();
+            if (!rows.length) return null;
+            if (rows.length !== schedule.length || rows.some((row, i) => String(row.clientId) !== clientId ||
+                +row.originalDueDate !== +schedule[i].originalDueDate || row.amount !== schedule[i].amount || row.currency !== schedule[i].currency)) {
+                return res.status(409).json({ message: 'El identificador ya corresponde a otro plan.' });
+            }
+            return res.json({ count: rows.length, firstDueDate: schedule[0].dueDate });
+        };
+        try {
+            await mongoose.connection.transaction(session => Installment.insertMany(schedule.map((row, i) => ({
+                ...row,
+                ...(i === 0 && { _id: planId }),
+                monthlyPlanId: planId,
+                source: 'manual',
+                clientId: client._id,
+                customerName: client.fullName || [client.firstName, client.lastName].filter(Boolean).join(' '),
+                customerPhone: client.phone,
+                concept: 'Plan mensual de cuotas',
+                status: 'pendiente',
+                createdBy: author,
+                installmentAuditLog: [{ action: 'PLAN_GENERADO', user: author }]
+            })), { session }));
+        } catch (error) {
+            if (error.code === 11000) {
+                const response = await existing();
+                if (response) return response;
+            }
+            throw error;
+        }
+        res.status(201).json({ count: schedule.length, firstDueDate: schedule[0].dueDate });
+    } catch (error) {
+        console.error('Error creando plan mensual:', error);
+        res.status(500).json({ message: 'No se pudo crear el plan mensual.' });
+    }
+});
+
+app.patch('/api/admin/installments/:id/monthly-plan-status', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    const { collected } = req.body ?? {};
+    if (!mongoose.isValidObjectId(req.params.id) || typeof collected !== 'boolean') {
+        return res.status(400).json({ message: 'Estado de cuota inválido.' });
+    }
+    try {
+        await connectDB();
+        const author = req.user.email || req.user.role;
+        const planItem = { _id: req.params.id, monthlyPlanId: { $exists: true }, source: 'manual' };
+        const item = await Installment.findOne(planItem).lean();
+        if (!item) return res.status(404).json({ message: 'Cuota del plan no encontrada.' });
+        if (await Transaction.exists({ installmentId: item._id, status: { $ne: 'anulado' } })) {
+            return res.status(409).json({ message: 'La cuota tiene un movimiento registrado. Revisá el cobro desde su historial.' });
+        }
+        const states = collected
+            ? { status: { $in: ['pendiente', 'vencida', 'reprogramada'] }, paidAmount: 0 }
+            : { status: 'pagada_manual', monthlyPlanCollected: true, paidAmount: item.amount };
+        const fields = {
+            monthlyPlanCollected: collected,
+            status: collected ? 'pagada_manual' : item.isRescheduled ? 'reprogramada' : 'pendiente',
+            paidAmount: collected ? item.amount : 0,
+            updatedBy: author
+        };
+        const updated = await Installment.findOneAndUpdate({ ...planItem, ...states, updatedAt: item.updatedAt }, {
+            $set: { ...fields, ...(collected && { paymentDate: new Date() }) },
+            ...(!collected && { $unset: { paymentDate: 1 } }),
+            $push: { installmentAuditLog: {
+                action: collected ? 'CUOTA_MARCADA_PAGADA_MANUAL' : 'CUOTA_EDITADA',
+                details: collected ? 'Marcada como cobrada sin asiento de caja.' : 'Marca de cobro revertida.',
+                user: author
+            } }
+        }, { new: true, runValidators: true });
+        if (!updated) return res.status(409).json({ message: 'La cuota cambió. Actualizá la lista y revisá su estado.' });
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al actualizar estado de cuota mensual:', error);
+        res.status(500).json({ message: 'No se pudo actualizar la cuota.' });
     }
 });
 
