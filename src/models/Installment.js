@@ -63,6 +63,9 @@ const installmentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Car'
     },
+    monthlyPlanId: { type: mongoose.Schema.Types.ObjectId },
+    monthlyPlanSize: { type: Number },
+    monthlyPlanCollected: { type: Boolean },
     installmentNumber: {
         type: Number,
         required: true
