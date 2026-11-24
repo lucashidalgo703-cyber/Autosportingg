@@ -36,6 +36,14 @@ function formatMoney(amount, currency = 'ARS') {
     return `${isNegative ? '-' : ''}${currency === 'USD' ? 'USD ' : '$ '}${formatted}`;
 }
 
+function formatLocalYmd(d) {
+    if (!d || isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 export default function RentabilidadPage() {
     const { user, token, loading: authLoading } = useAuth();
 
@@ -44,13 +52,10 @@ export default function RentabilidadPage() {
 
     // Estado de filtros
     const [activeTab, setActiveTab] = useState('sold'); // 'sold' | 'stock' | 'compare'
-    const [periodPreset, setPeriodPreset] = useState('month'); // 'month' | 'last_month' | 'quarter' | 'year' | 'all' | 'custom'
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(1);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [periodPreset, setPeriodPreset] = useState('all'); // Por defecto 'all' para cargar todo lo registrado sin corte
+    const [selectedMonth, setSelectedMonth] = useState('all'); // 'all' o 'YYYY-MM'
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [participationFilter, setParticipationFilter] = useState('all');
@@ -100,32 +105,103 @@ export default function RentabilidadPage() {
         }
     }, [fetchData, isAuthorized]);
 
-    // Manejo de presets de fechas
+    // Opciones dinámicas de meses (últimos 18 meses)
+    const monthOptions = useMemo(() => {
+        const months = [];
+        const now = new Date();
+        for (let i = 0; i < 18; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const val = `${y}-${m}`;
+            const label = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+            const capitalized = label.charAt(0).toUpperCase() + label.slice(1);
+            months.push({ value: val, label: capitalized });
+        }
+        return months;
+    }, []);
+
+    // Nombre legible del mes o período activo
+    const activePeriodLabel = useMemo(() => {
+        if (periodPreset === 'all' || (!startDate && !endDate)) return 'Histórico Completo';
+        if (selectedMonth && selectedMonth !== 'all' && periodPreset === 'month_select') {
+            const match = monthOptions.find(o => o.value === selectedMonth);
+            if (match) return match.label;
+            return selectedMonth;
+        }
+        if (periodPreset === 'month') return 'Este Mes';
+        if (periodPreset === 'last_month') return 'Mes Anterior';
+        if (periodPreset === 'quarter') return 'Últimos 3 Meses';
+        if (periodPreset === 'year') return 'Año Actual';
+        if (startDate && endDate) return `${startDate} a ${endDate}`;
+        return 'Período Seleccionado';
+    }, [periodPreset, selectedMonth, startDate, endDate, monthOptions]);
+
+    // Manejo de presets de fechas con fechas locales exactas sin desfase horario
     const applyDatePreset = (preset) => {
         setPeriodPreset(preset);
         const today = new Date();
         if (preset === 'month') {
             const start = new Date(today.getFullYear(), today.getMonth(), 1);
-            setStartDate(start.toISOString().split('T')[0]);
-            setEndDate(today.toISOString().split('T')[0]);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const ym = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            setSelectedMonth(ym);
+            setStartDate(formatLocalYmd(start));
+            setEndDate(formatLocalYmd(end));
         } else if (preset === 'last_month') {
             const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             const end = new Date(today.getFullYear(), today.getMonth(), 0);
-            setStartDate(start.toISOString().split('T')[0]);
-            setEndDate(end.toISOString().split('T')[0]);
+            const ym = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+            setSelectedMonth(ym);
+            setStartDate(formatLocalYmd(start));
+            setEndDate(formatLocalYmd(end));
         } else if (preset === 'quarter') {
-            const start = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-            setStartDate(start.toISOString().split('T')[0]);
-            setEndDate(today.toISOString().split('T')[0]);
+            const start = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            setSelectedMonth('custom');
+            setStartDate(formatLocalYmd(start));
+            setEndDate(formatLocalYmd(end));
         } else if (preset === 'year') {
             const start = new Date(today.getFullYear(), 0, 1);
-            setStartDate(start.toISOString().split('T')[0]);
-            setEndDate(today.toISOString().split('T')[0]);
+            const end = new Date(today.getFullYear(), 11, 31);
+            setSelectedMonth('custom');
+            setStartDate(formatLocalYmd(start));
+            setEndDate(formatLocalYmd(end));
         } else if (preset === 'all') {
+            setSelectedMonth('all');
             setStartDate('');
             setEndDate('');
         }
     };
+
+    // Selección directa de mes específico
+    const handleMonthSelect = (ym) => {
+        if (!ym) return;
+        if (ym === 'all') {
+            applyDatePreset('all');
+            return;
+        }
+        setSelectedMonth(ym);
+        setPeriodPreset('month_select');
+        const [y, m] = ym.split('-').map(Number);
+        const start = new Date(y, m - 1, 1);
+        const end = new Date(y, m, 0);
+        setStartDate(formatLocalYmd(start));
+        setEndDate(formatLocalYmd(end));
+    };
+
+    // Auto-detectar moneda con datos activos si la vista actual no tiene volumen
+    useEffect(() => {
+        if (data?.summary?.realized) {
+            const arsVol = (data.summary.realized.totalSalesVolume?.ARS || 0) + (data.summary.realized.totalRealizedNetProfit?.ARS || 0);
+            const usdVol = (data.summary.realized.totalSalesVolume?.USD || 0) + (data.summary.realized.totalRealizedNetProfit?.USD || 0);
+            if (arsVol > 0 && usdVol === 0 && currencyView !== 'ARS') {
+                setCurrencyView('ARS');
+            } else if (usdVol > 0 && arsVol === 0 && currencyView !== 'USD') {
+                setCurrencyView('USD');
+            }
+        }
+    }, [data, currencyView]);
 
     // Selección para comparación (máximo 4)
     const toggleCompare = (v) => {
@@ -272,6 +348,62 @@ export default function RentabilidadPage() {
                 </div>
             </div>
 
+            {/* Barra Superior de Período y Selector de Mes Activo */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-crm-surface p-3 sm:px-4 sm:py-3 rounded-2xl border border-crm-border shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-purple-300 font-bold text-xs">
+                        <Calendar size={14} className="text-purple-400" />
+                        <span>Mes / Período de Ventas:</span>
+                    </div>
+
+                    {/* Selector Desplegable de Mes Directo */}
+                    <div className="flex items-center gap-1.5 bg-crm-bg px-2.5 py-1.5 rounded-xl border border-purple-500/30">
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => handleMonthSelect(e.target.value)}
+                            className="bg-transparent text-xs text-white font-bold focus:outline-none cursor-pointer"
+                        >
+                            <option value="all" className="bg-crm-surface text-white">📅 Todo el Histórico de Ventas</option>
+                            <optgroup label="Seleccionar Mes Específico" className="bg-crm-surface text-white">
+                                {monthOptions.map((opt) => (
+                                    <option key={opt.value} value={opt.value} className="bg-crm-surface text-white">
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    {/* Presets rápidos */}
+                    {[
+                        { id: 'month', label: 'Este Mes' },
+                        { id: 'last_month', label: 'Mes Anterior' },
+                        { id: 'quarter', label: 'Trimestre' },
+                        { id: 'all', label: 'Histórico Completo' }
+                    ].map((preset) => (
+                        <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => applyDatePreset(preset.id)}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                                periodPreset === preset.id
+                                    ? 'bg-purple-600 text-white shadow-sm'
+                                    : 'bg-crm-bg border border-crm-border text-crm-fg-muted hover:text-white'
+                            }`}
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs">
+                    <span className="text-crm-fg-muted font-mono">Período Activo:</span>
+                    <span className="font-bold text-white bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 rounded-md text-[11px]">
+                        {activePeriodLabel}
+                    </span>
+                </div>
+            </div>
+
             {/* RESUMEN EJECUTIVO (Cards Principales) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 
@@ -289,6 +421,12 @@ export default function RentabilidadPage() {
                         {formatMoney(realized.totalRealizedAgencyNetProfit?.[currencyView] || 0, currencyView)}
                     </p>
                     <div className="space-y-1 pt-1 border-t border-crm-border/60 text-[11px] text-crm-fg-muted">
+                        <div className="flex items-center justify-between">
+                            <span>Total Operaciones:</span>
+                            <strong className="text-white font-mono">
+                                {formatMoney(realized.totalRealizedNetProfit?.[currencyView] || 0, currencyView)}
+                            </strong>
+                        </div>
                         <div className="flex items-center justify-between">
                             <span className="flex items-center gap-1 text-emerald-300">
                                 <CheckCircle2 size={10} /> Entregadas (Definitivo):
@@ -319,11 +457,25 @@ export default function RentabilidadPage() {
                         </div>
                     </div>
                     <p className="text-2xl font-black text-cyan-400 font-mono">
-                        {realized.averageMarginPct || 0}%
+                        {realized.averageMarginOnSalePct?.[currencyView] !== undefined 
+                            ? `${realized.averageMarginOnSalePct[currencyView]}%` 
+                            : `${realized.averageMarginPct || 0}%`}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-crm-fg-muted pt-1 border-t border-crm-border/60">
-                        <span>Vehículos calculables:</span>
-                        <strong className="text-white">{realized.calculableCount || 0} de {realized.totalCount || 0}</strong>
+                    <div className="space-y-1 pt-1 border-t border-crm-border/60 text-xs text-crm-fg-muted">
+                        <div className="flex items-center justify-between">
+                            <span>Margen s/ costo:</span>
+                            <strong className="text-white font-mono">
+                                {realized.averageMarginOnCostPct?.[currencyView] || 0}%
+                            </strong>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span>Promedio x unidad:</span>
+                            <strong className="text-white font-mono">{realized.averageMarginPct || 0}%</strong>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span>Unidades calculables:</span>
+                            <strong className="text-white">{realized.calculableCount || 0} de {realized.totalCount || 0}</strong>
+                        </div>
                     </div>
                 </div>
 
@@ -384,10 +536,10 @@ export default function RentabilidadPage() {
                         </span>
                         <div>
                             <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                                Regla Central: Margen Económico Devengado vs Efectivo Cobrado
+                                Regla Central: Margen Económico Devengado vs Efectivo Cobrado — {activePeriodLabel}
                             </h3>
                             <p className="text-[11px] text-crm-fg-muted">
-                                Las permutas y las cuotas diferidas no son dinero disponible. No se mezclan ganancias de operación con efectivo en mano.
+                                Las permutas y las cuotas diferidas no son dinero disponible. Conciliación estricta de las operaciones de {activePeriodLabel}.
                             </p>
                         </div>
                     </div>
@@ -398,11 +550,14 @@ export default function RentabilidadPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs font-mono">
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3 space-y-1">
-                        <span className="text-crm-fg-muted font-sans font-bold">1. Ganancia Neta Devengada ({currencyView})</span>
+                        <div className="flex items-center justify-between">
+                            <span className="text-crm-fg-muted font-sans font-bold">1. Margen Comercial Devengado ({currencyView})</span>
+                            <span className="text-[10px] text-emerald-400 font-bold font-sans">Agencia: {formatMoney(realized.totalRealizedAgencyNetProfit?.[currencyView] || 0, currencyView)}</span>
+                        </div>
                         <p className="text-base font-bold text-white">
                             {formatMoney(realized.totalRealizedNetProfit?.[currencyView] || 0, currencyView)}
                         </p>
-                        <p className="text-[10px] text-crm-fg-subtle font-sans">Margen atribuible a las ventas del período</p>
+                        <p className="text-[10px] text-crm-fg-subtle font-sans">Margen total atribuible a las ventas de {activePeriodLabel}</p>
                     </div>
 
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3 space-y-1">
@@ -410,7 +565,7 @@ export default function RentabilidadPage() {
                         <p className="text-base font-bold text-emerald-400">
                             {formatMoney(realized.totalCashCollected?.[currencyView] || 0, currencyView)}
                         </p>
-                        <p className="text-[10px] text-crm-fg-subtle font-sans">Señas y cobros reales ingresados a cuentas</p>
+                        <p className="text-[10px] text-crm-fg-subtle font-sans">Señas y cobros reales ingresados por ventas de {activePeriodLabel}</p>
                     </div>
 
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3 space-y-1">
@@ -418,7 +573,7 @@ export default function RentabilidadPage() {
                         <p className="text-base font-bold text-amber-300">
                             {formatMoney(realized.totalPendingReceivable?.[currencyView] || 0, currencyView)}
                         </p>
-                        <p className="text-[10px] text-crm-fg-subtle font-sans">Cuotas de financiación aún pendientes de vencimiento</p>
+                        <p className="text-[10px] text-crm-fg-subtle font-sans">Financiación diferida y cuotas pendientes de {activePeriodLabel}</p>
                     </div>
                 </div>
             </div>
@@ -433,12 +588,30 @@ export default function RentabilidadPage() {
                         <span className="text-xs font-black uppercase tracking-wider text-white">Período de Análisis:</span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Selector Desplegable de Mes Directo en Barra de Filtros */}
+                        <div className="flex items-center gap-1.5 bg-crm-bg px-2.5 py-1 rounded-xl border border-purple-500/30">
+                            <Calendar size={13} className="text-purple-400" />
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => handleMonthSelect(e.target.value)}
+                                className="bg-transparent text-xs text-white font-bold focus:outline-none cursor-pointer"
+                            >
+                                <option value="all" className="bg-crm-surface text-white">📅 Todo el Histórico de Ventas</option>
+                                <optgroup label="Seleccionar Mes Específico" className="bg-crm-surface text-white">
+                                    {monthOptions.map((opt) => (
+                                        <option key={opt.value} value={opt.value} className="bg-crm-surface text-white">
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                        </div>
+
                         {[
                             { id: 'month', label: 'Este Mes' },
                             { id: 'last_month', label: 'Mes Anterior' },
-                            { id: 'quarter', label: 'Últimos 3 Meses' },
-                            { id: 'year', label: 'Año Actual' },
+                            { id: 'quarter', label: 'Trimestre' },
                             { id: 'all', label: 'Histórico Completo' }
                         ].map((preset) => (
                             <button

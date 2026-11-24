@@ -105,6 +105,29 @@ async function loadSaleCashMetrics(sale) {
         }
     }
 
+    // Inferencia económica fiel cuando aún no se han creado transacciones ni cuotas en sub-colecciones
+    if (txs.length === 0 && installments.length === 0) {
+        const saleCur = normalizeCurrency(sale.saleCurrency || 'ARS');
+        const salePrice = num(sale.salePrice);
+        const tradeInAmt = num(sale.tradeInTotalAmount);
+
+        if (sale.financingDetails?.hasFinancing) {
+            const downPayment = num(sale.financingDetails.downPayment) || Math.max(0, salePrice - tradeInAmt - (num(sale.financingDetails.financedBalance) || 0));
+            const pending = num(sale.financingDetails.totalFinancedWithInterest) || num(sale.financingDetails.financedBalance) || 0;
+            if (cashCollected[saleCur] === 0 && downPayment > 0) {
+                cashCollected[saleCur] = roundMoney(downPayment);
+            }
+            if (pending > 0) {
+                pendingReceivable[saleCur] = roundMoney(pending);
+            }
+        } else if (sale.paymentMethod === 'contado' || sale.paymentMethod === 'permuta') {
+            const netCashExpected = Math.max(0, salePrice - tradeInAmt);
+            if (cashCollected[saleCur] === 0 && netCashExpected > 0) {
+                cashCollected[saleCur] = roundMoney(netCashExpected);
+            }
+        }
+    }
+
     return {
         cashCollected,
         pendingReceivable,
@@ -648,8 +671,11 @@ function computeExecutiveSummary(soldVehicles, stockVehicles) {
 
             // Volúmenes y márgenes globales
             totalSalesVolume: { ARS: 0, USD: 0 },
+            totalCostVolume: { ARS: 0, USD: 0 },
             totalRealizedNetProfit: { ARS: 0, USD: 0 },
             totalRealizedAgencyNetProfit: { ARS: 0, USD: 0 },
+            averageMarginOnSalePct: { ARS: 0, USD: 0 },
+            averageMarginOnCostPct: { ARS: 0, USD: 0 },
 
             // Discriminación por política de entrega
             deliveredNetProfit: { ARS: 0, USD: 0 }, // Definitivamente realizado
@@ -709,6 +735,9 @@ function computeExecutiveSummary(soldVehicles, stockVehicles) {
             marginCount++;
         }
 
+        if (v.totalCostWithSaleExpenses !== null) {
+            summary.realized.totalCostVolume[cur] = roundMoney((summary.realized.totalCostVolume[cur] || 0) + v.totalCostWithSaleExpenses);
+        }
         totalDaysSold += v.daysImmobilized || 0;
 
         summary.realized.totalExpenses[cur] = roundMoney((summary.realized.totalExpenses[cur] || 0) + (v.totalExpenses || 0));
@@ -725,6 +754,14 @@ function computeExecutiveSummary(soldVehicles, stockVehicles) {
 
     summary.realized.averageMarginPct = marginCount > 0 ? roundMoney(totalMarginSum / marginCount) : 0;
     summary.realized.averageDaysImmobilized = soldVehicles.length > 0 ? Math.round(totalDaysSold / soldVehicles.length) : 0;
+
+    for (const c of ['ARS', 'USD']) {
+        const salesVol = summary.realized.totalSalesVolume[c] || 0;
+        const profit = summary.realized.totalRealizedNetProfit[c] || 0;
+        const costVol = summary.realized.totalCostVolume[c] || 0;
+        summary.realized.averageMarginOnSalePct[c] = salesVol > 0 ? roundMoney((profit / salesVol) * 100) : (marginCount > 0 ? roundMoney(totalMarginSum / marginCount) : 0);
+        summary.realized.averageMarginOnCostPct[c] = costVol > 0 ? roundMoney((profit / costVol) * 100) : 0;
+    }
 
     // Agregar en stock
     let totalPotentialMarginSum = 0;
@@ -775,14 +812,32 @@ export async function getVehicleProfitabilityOverview({
     deliveryFilter = 'all', // 'all', 'delivered', 'pending_delivery'
     exchangeRate = null
 } = {}) {
-    // Resolver rango de fechas
-    let start = startDate ? new Date(startDate) : null;
-    let end = endDate ? new Date(endDate) : null;
+        // Resolver rango de fechas con límites UTC exactos para evitar desfases de huso horario
+    let start = null;
+    let end = null;
 
     if (period && /^\d{4}-\d{2}$/.test(period)) {
         const [year, month] = period.split('-').map(Number);
-        start = new Date(year, month - 1, 1);
-        end = new Date(year, month, 0, 23, 59, 59, 999);
+        start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    } else {
+        if (startDate) {
+            const parts = String(startDate).split('-').map(Number);
+            if (parts.length === 3) {
+                start = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0));
+            } else {
+                start = new Date(startDate);
+            }
+        }
+        if (endDate) {
+            const parts = String(endDate).split('-').map(Number);
+            if (parts.length === 3) {
+                end = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999));
+            } else {
+                end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+            }
+        }
     }
 
     // 1. Obtener todas las ventas concretadas en el período (o históricas)
@@ -797,16 +852,28 @@ export async function getVehicleProfitabilityOverview({
     }
 
     if (start && end) {
-        saleQuery.saleDate = { $gte: start, $lte: end };
+        saleQuery.$or = [
+            { saleDate: { $gte: start, $lte: end } },
+            { saleDate: null, createdAt: { $gte: start, $lte: end } },
+            { saleDate: { $exists: false }, createdAt: { $gte: start, $lte: end } }
+        ];
     } else if (start) {
-        saleQuery.saleDate = { $gte: start };
+        saleQuery.$or = [
+            { saleDate: { $gte: start } },
+            { saleDate: null, createdAt: { $gte: start } },
+            { saleDate: { $exists: false }, createdAt: { $gte: start } }
+        ];
     } else if (end) {
-        saleQuery.saleDate = { $lte: end };
+        saleQuery.$or = [
+            { saleDate: { $lte: end } },
+            { saleDate: null, createdAt: { $lte: end } },
+            { saleDate: { $exists: false }, createdAt: { $lte: end } }
+        ];
     }
 
     const sales = await Sale.find(saleQuery)
         .populate('vehicleId')
-        .sort({ saleDate: -1 })
+        .sort({ saleDate: -1, createdAt: -1 })
         .lean();
 
     const soldVehicles = [];
