@@ -279,6 +279,8 @@ export const canReadFinancialPilot = user => user?.role === ROLES.OWNER ||
     (user?.role === ROLES.ADMIN && Array.isArray(user.permissions) && user.permissions.includes(PERMISSIONS.FINANCIAL_PILOT_READ));
 export const canReadCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_READ);
 export const canWriteCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_WRITE);
+export const canReadStrategicRotation = (user) => canReadRentabilidad(user);
+
 export const canReadRentabilidad = (user) => {
     if (!user) return false;
     if (user.role === ROLES.OWNER) return true;

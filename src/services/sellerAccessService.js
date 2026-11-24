@@ -66,7 +66,7 @@ export async function enforceSellerAccess(req, res) {
     const blocked = /^\/api\/admin\/(?:cars|dashboard|team-dashboard|offline)(?:\/|$)/.test(path)
         || /^\/api\/cars(?:\/|$)/.test(path)
         || /^\/api\/stats\/dashboard(?:\/|$)/.test(path)
-        || /^\/api\/admin\/stock(?:\/|$)/.test(path) && !/^\/api\/admin\/stock\/negotiation(?:\/|$)/.test(path)
+        || /^\/api\/admin\/stock(?:\/|$)/.test(path) && !/^\/api\/admin\/stock\/(?:negotiation|rotation\/seller-priority)(?:\/|$)/.test(path)
         || /^\/api\/admin\/sales\/[a-f\d]{24}\/trade-in-chain(?:\/|$)/.test(path)
         || /^\/api\/admin\/exports\/stock(?:\/|$)/.test(path);
     if (blocked) fail('Esta sección no está habilitada para vendedores.', 403);

@@ -26,6 +26,7 @@ import { hasPermission, PERMISSIONS, canReadStockNegotiation, canReadCapitalHist
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
+import StrategicRotationPanel from '../../../components/crm/stock/rotation/StrategicRotationPanel';
 import VehicleIntakeModal from '../../../components/crm/stock/VehicleIntakeModal';
 
 
@@ -39,9 +40,43 @@ export default function AdminStockPage() {
 
 function RestrictedStockPage({ user }) {
     const [intakeOpen, setIntakeOpen] = useState(false);
+    const [sellerTab, setSellerTab] = useState('prioridades'); // 'prioridades' | 'negotiation'
+
     return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
-        <CrmPageHeader title="Stock" subtitle="Negociación de contado de las unidades disponibles." actions={hasPermission(user, PERMISSIONS.STOCK_SUBMIT) && <CrmButton type="button" onClick={() => setIntakeOpen(true)}><Plus size={16}/> Solicitar alta de vehículo</CrmButton>}/>
-        {canReadStockNegotiation(user) ? <StockNegotiationPanel/> : <p className="text-sm text-crm-fg-muted">No tenés permiso para consultar Negociación.</p>}
+        <CrmPageHeader 
+            title="Stock" 
+            subtitle={sellerTab === 'prioridades' ? 'Prioridades comerciales y directivas de stock autorizadas.' : 'Negociación de contado de las unidades disponibles.'} 
+            actions={hasPermission(user, PERMISSIONS.STOCK_SUBMIT) && <CrmButton type="button" onClick={() => setIntakeOpen(true)}><Plus size={16}/> Solicitar alta de vehículo</CrmButton>}
+        />
+        <div className="flex gap-4 border-b border-crm-border pb-2">
+            <button
+                type="button"
+                onClick={() => setSellerTab('prioridades')}
+                className={`text-xs font-black uppercase tracking-wider pb-2 border-b-2 transition-all ${
+                    sellerTab === 'prioridades' ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted hover:text-white'
+                }`}
+            >
+                Prioridades de Venta
+            </button>
+            {canReadStockNegotiation(user) && (
+                <button
+                    type="button"
+                    onClick={() => setSellerTab('negotiation')}
+                    className={`text-xs font-black uppercase tracking-wider pb-2 border-b-2 transition-all ${
+                        sellerTab === 'negotiation' ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted hover:text-white'
+                    }`}
+                >
+                    Negociación de Contado
+                </button>
+            )}
+        </div>
+        {sellerTab === 'prioridades' ? (
+            <StrategicRotationPanel />
+        ) : canReadStockNegotiation(user) ? (
+            <StockNegotiationPanel />
+        ) : (
+            <p className="text-sm text-crm-fg-muted">No tenés permiso para consultar Negociación.</p>
+        )}
         {intakeOpen && <VehicleIntakeModal onClose={() => setIntakeOpen(false)}/>}
     </div>;
 }
@@ -421,7 +456,7 @@ function StockInventoryPage() {
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
-                    subtitle={stockTab === 'negotiation' ? 'Precios de contado y ganancia proyectada de las unidades disponibles.' : 'Inventario disponible para vender. Las fichas de otros estados se conservan en el historial.'}
+                    subtitle={stockTab === 'rotacion' ? 'Inteligencia de rotación, precios de mercado y recuperación estratégica de capital.' : stockTab === 'negotiation' ? 'Precios de contado y ganancia proyectada de las unidades disponibles.' : 'Inventario disponible para vender. Las fichas de otros estados se conservan en el historial.'}
                     actions={
                         <>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
@@ -447,7 +482,7 @@ function StockInventoryPage() {
                     }
                 />
 
-                {canSeeCosts && !['mandatos', 'negotiation'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} showCapitalHistory={canReadCapitalHistory(user)} />}
+                {canSeeCosts && !['mandatos', 'negotiation', 'rotacion'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} showCapitalHistory={canReadCapitalHistory(user)} />}
 
                 <div className="flex flex-col">
                     <StockFilters
@@ -471,10 +506,10 @@ function StockInventoryPage() {
                         canNegotiate={canNegotiate}
                     />
 
-                    {stockTab !== 'negotiation' && <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>}
+                    {!['negotiation', 'rotacion'].includes(stockTab) && <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>}
                     {stockTab === 'historial' && <p className="mb-3 text-xs text-crm-fg-muted">Consulta de fichas en todos los estados. Los totales de capital de arriba incluyen únicamente unidades disponibles.</p>}
 
-                    {stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : error ? (
+                    {stockTab === 'rotacion' ? <StrategicRotationPanel/> : stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : error ? (
                         <div role="alert" className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
                             <p className="m-0 text-sm font-bold text-crm-red">No se pudo cargar Stock</p>
                             <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>
