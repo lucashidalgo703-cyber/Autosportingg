@@ -19,7 +19,7 @@ export default function PayInstallmentModal({ isOpen, onClose, installment, acco
             const compatibleAccounts = accounts?.filter(a => a.currency === installment.currency && a.isActive !== false) || [];
             
             setFormData({
-                accountId: compatibleAccounts.length > 0 ? compatibleAccounts[0]._id : '',
+                accountId: compatibleAccounts.length > 0 ? compatibleAccounts[0]._id : 'manual_no_account',
                 amount: balance > 0 ? balance.toString() : '',
                 paymentMethod: 'efectivo',
                 notes: 'Cobro de cuota'
@@ -38,7 +38,7 @@ export default function PayInstallmentModal({ isOpen, onClose, installment, acco
         setError(null);
         
         if (!formData.accountId) {
-            setError('Debe seleccionar una cuenta de caja');
+            setError('Debe seleccionar una cuenta o elegir cobro directo');
             return;
         }
         
@@ -55,6 +55,7 @@ export default function PayInstallmentModal({ isOpen, onClose, installment, acco
         await onPay(installment._id, {
             amount: Number(formData.amount),
             accountId: formData.accountId,
+            isManual: formData.accountId === 'manual_no_account',
             paymentMethod: formData.paymentMethod,
             notes: formData.notes
         });
@@ -111,16 +112,13 @@ export default function PayInstallmentModal({ isOpen, onClose, installment, acco
                                 onChange={(e) => setFormData({...formData, accountId: e.target.value})}
                                 required
                             >
-                                <option value="">-- Seleccionar Cuenta --</option>
+                                <option value="manual_no_account">-- Cobro directo (sin movimiento de caja) --</option>
                                 {compatibleAccounts.map(acc => (
                                     <option key={acc._id} value={acc._id}>
                                         {acc.name} (Saldo: {acc.currency} {Number(acc.balance).toLocaleString()})
                                     </option>
                                 ))}
                             </select>
-                            {compatibleAccounts.length === 0 && (
-                                <p className="text-xs text-crm-red mt-1">No hay cuentas disponibles para la moneda {installment.currency}.</p>
-                            )}
                         </div>
 
                         <div className="flex gap-4">
@@ -183,7 +181,7 @@ export default function PayInstallmentModal({ isOpen, onClose, installment, acco
                         type="submit"
                         form="pay-installment-form"
                         className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-500 transition-colors flex justify-center items-center gap-2"
-                        disabled={isSubmitting || compatibleAccounts.length === 0}
+                        disabled={isSubmitting}
                     >
                         {isSubmitting ? (
                             <>

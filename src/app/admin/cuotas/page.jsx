@@ -32,7 +32,6 @@ import CrmBadge from '../../../components/crm/ui/CrmBadge';
 import RescheduleInstallmentModal from '../../../components/crm/installments/RescheduleInstallmentModal';
 import CancelRescheduleModal from '../../../components/crm/installments/CancelRescheduleModal';
 import InstallmentHistoryModal from '../../../components/crm/installments/InstallmentHistoryModal';
-import TreasuryCollectAndDistributeModal from '../../../components/crm/treasury/TreasuryCollectAndDistributeModal';
 import PayInstallmentModal from '../../../components/crm/installments/PayInstallmentModal';
 import MonthlyPlanModal from '../../../components/crm/installments/MonthlyPlanModal';
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
@@ -67,7 +66,7 @@ export default function CuotasPage() {
     const [rescheduleModalItem, setRescheduleModalItem] = useState(null);
     const [cancelModalItem, setCancelModalItem] = useState(null);
     const [historyModalId, setHistoryModalId] = useState(null);
-    const [collectModalItem, setCollectModalItem] = useState(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState(null);
     const [directPayItem, setDirectPayItem] = useState(null);
     const [monthlyPlanOpen, setMonthlyPlanOpen] = useState(false);
     const [updatingPlanItem, setUpdatingPlanItem] = useState(null);
@@ -203,13 +202,47 @@ export default function CuotasPage() {
 
     const isCurrentMonth = selectedMonth === (today.getMonth() + 1) && selectedYear === today.getFullYear() && !showOnlyPrevPending;
 
-    // Manejador de registro de cobro
-    const handlePayClick = (item) => {
-        if (item.saleId?._id || item.saleId) {
-            setCollectModalItem(item);
-        } else {
-            setDirectPayItem(item);
+    async function toggleInstallmentStatus(item, toPaid) {
+        setUpdatingStatusId(item._id);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/installments/' + item._id, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(
+                    toPaid
+                        ? {
+                            status: 'pagada_manual',
+                            paidAmount: Number(item.amount || 0),
+                            paymentDate: new Date().toISOString(),
+                            monthlyPlanCollected: true
+                        }
+                        : {
+                            status: 'pendiente',
+                            paidAmount: 0,
+                            paymentDate: null,
+                            monthlyPlanCollected: false
+                        }
+                )
+            });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.message || 'Error al actualizar estado de la cuota');
+            toast.success(toPaid ? 'Cuota marcada como pagada' : 'Cuota marcada como pendiente');
+            await fetchMonthlyData();
+        } catch (error) {
+            console.error('Error toggling installment status:', error);
+            toast.error(error.message || 'No se pudo actualizar el estado de la cuota');
+        } finally {
+            setUpdatingStatusId(null);
         }
+    }
+
+    // Manejador de registro de cobro directo
+    const handlePayClick = (item) => {
+        setDirectPayItem(item);
     };
 
     return (
@@ -607,23 +640,34 @@ export default function CuotasPage() {
                                             {/* Acciones por fila */}
                                             <td className="py-3.5 px-4 text-right">
                                                 <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                                                    {canUpdatePlan && item.monthlyPlanId && !item.linkedTransactions?.length &&
-                                                        ((item.monthlyPlanCollected && item.status === 'pagada_manual') || (!item.isFullyPaid && !item.isPartial)) && (
-                                                        <button onClick={() => updateMonthlyPlanStatus(item)} disabled={Boolean(updatingPlanItem)}
-                                                            title="Actualiza el estado sin registrar un movimiento de caja"
-                                                            className="rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
-                                                            {item.monthlyPlanCollected ? 'Marcar pendiente' : 'Marcar cobrada'}
-                                                        </button>
-                                                    )}
-                                                    {/* Registrar pago */}
-                                                    {item.mainStatus !== 'PAGADO' && (
+                                                    {/* Marcar pagada o pendiente / Cargar cobro */}
+                                                    {item.mainStatus === 'PAGADO' ? (
                                                         <button
-                                                            onClick={() => handlePayClick(item)}
-                                                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors shadow-sm"
-                                                            title="Registrar cobro de cuota"
+                                                            onClick={() => toggleInstallmentStatus(item, false)}
+                                                            disabled={updatingStatusId === item._id}
+                                                            title="Volver cuota a estado pendiente"
+                                                            className="rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-300 transition-colors disabled:opacity-50"
                                                         >
-                                                            Cobrar
+                                                            {updatingStatusId === item._id ? 'Actualizando...' : 'Marcar pendiente'}
                                                         </button>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handlePayClick(item)}
+                                                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors shadow-sm"
+                                                                title="Cargar cobro de cuota"
+                                                            >
+                                                                Cobrar
+                                                            </button>
+                                                            <button
+                                                                onClick={() => toggleInstallmentStatus(item, true)}
+                                                                disabled={updatingStatusId === item._id}
+                                                                title="Marcar como cobrada directamente"
+                                                                className="rounded-lg border border-neutral-700 px-2.5 py-1 text-[11px] font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                                                            >
+                                                                {updatingStatusId === item._id ? 'Actualizando...' : 'Marcar cobrada'}
+                                                            </button>
+                                                        </>
                                                     )}
 
                                                     {/* Reprogramar */}
@@ -690,21 +734,6 @@ export default function CuotasPage() {
                 installmentId={historyModalId}
             />
 
-            {/* Modal de Cobro Tesorería Estratégica */}
-            {collectModalItem && (
-                <TreasuryCollectAndDistributeModal
-                    isOpen={Boolean(collectModalItem)}
-                    onClose={() => setCollectModalItem(null)}
-                    accounts={accounts}
-                    initialSaleId={collectModalItem.saleId?._id || collectModalItem.saleId}
-                    initialInstallmentId={collectModalItem._id}
-                    onSuccess={() => {
-                        setCollectModalItem(null);
-                        fetchMonthlyData();
-                    }}
-                />
-            )}
-
             {/* Modal de Pago Directo cuando no tiene venta asociada */}
             {directPayItem && (
                 <PayInstallmentModal
@@ -714,16 +743,36 @@ export default function CuotasPage() {
                     accounts={accounts}
                     onPay={async (id, payData) => {
                         const token = localStorage.getItem('token');
-                        const res = await fetch(`/api/admin/installments/${id}/pay`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify(payData)
-                        });
-                        const d = await res.json();
-                        if (!res.ok) throw new Error(d.message || 'Error registrando cobro');
+                        if (payData.isManual || payData.accountId === 'manual_no_account') {
+                            const res = await fetch(`/api/admin/installments/${id}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    status: 'pagada_manual',
+                                    paidAmount: Number(payData.amount),
+                                    paymentMethod: payData.paymentMethod || 'efectivo',
+                                    notes: payData.notes || '',
+                                    paymentDate: new Date().toISOString(),
+                                    monthlyPlanCollected: true
+                                })
+                            });
+                            const d = await res.json();
+                            if (!res.ok) throw new Error(d.message || 'Error al marcar cuota como pagada');
+                        } else {
+                            const res = await fetch(`/api/admin/installments/${id}/pay`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify(payData)
+                            });
+                            const d = await res.json();
+                            if (!res.ok) throw new Error(d.message || 'Error registrando cobro');
+                        }
                         toast.success('Cobro registrado exitosamente');
                         setDirectPayItem(null);
                         fetchMonthlyData();

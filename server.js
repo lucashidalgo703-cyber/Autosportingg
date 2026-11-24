@@ -8487,7 +8487,7 @@ app.patch('/api/admin/installments/:id', authenticateToken, requirePermission(PE
         if (!installment) return res.status(404).json({ message: 'Installment not found' });
 
         let hasChanges = false;
-        const allowedUpdates = ['dueDate', 'amount', 'currency', 'status', 'notes', 'customerName', 'customerPhone', 'concept', 'paymentMethod', 'paidAmount', 'paymentDate'];
+        const allowedUpdates = ['dueDate', 'amount', 'currency', 'status', 'notes', 'customerName', 'customerPhone', 'concept', 'paymentMethod', 'paidAmount', 'paymentDate', 'monthlyPlanCollected'];
         let actionStr = 'CUOTA_EDITADA';
 
         allowedUpdates.forEach(field => {
@@ -8497,8 +8497,17 @@ app.patch('/api/admin/installments/:id', authenticateToken, requirePermission(PE
                 hasChanges = true;
 
                 if (field === 'status') {
-                    if (updates[field] === 'pagada_manual') actionStr = 'CUOTA_MARCADA_PAGADA_MANUAL';
+                    if (updates[field] === 'pagada_manual' || updates[field] === 'pagada') {
+                        actionStr = 'CUOTA_MARCADA_PAGADA_MANUAL';
+                        installment.monthlyPlanCollected = true;
+                    }
                     if (updates[field] === 'anulada') actionStr = 'CUOTA_ANULADA';
+                    if (updates[field] === 'pendiente') {
+                        actionStr = 'CUOTA_MARCADA_PENDIENTE';
+                        installment.paymentDate = undefined;
+                        installment.paidAmount = 0;
+                        installment.monthlyPlanCollected = false;
+                    }
                 }
             }
         });
