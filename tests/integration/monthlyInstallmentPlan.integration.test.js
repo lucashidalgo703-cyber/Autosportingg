@@ -33,7 +33,7 @@ test('el CRM crea el plan, filtra por mes y cambia el estado sin crear movimient
         assert.equal((await env.call('POST', endpoint + '/monthly-plan', { ...plan, amount: 2000 }, admin.token)).status, 409);
         const rows = await env.models.Installment.find({ monthlyPlanId: planId }).sort('installmentNumber').lean();
         assert.equal(rows.length, 3);
-        assert.ok(rows.every(row => String(row.clientId) === plan.clientId));
+        assert.ok(rows.every(row => String(row.clientId) === plan.clientId && row.monthlyPlanSize === 3));
         const month = async (n, status = 'todas') => {
             const response = await env.call('GET', endpoint + '/monthly?year=2028&month=' + n + '&status=' + status, undefined, admin.token);
             assert.equal(response.status, 200);

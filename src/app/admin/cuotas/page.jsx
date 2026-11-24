@@ -528,7 +528,7 @@ export default function CuotasPage() {
                                             <td className="py-3.5 px-4">
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-white font-mono">
-                                                        #{item.installmentNumber || 1} de {item.totalInstallments || 1}
+                                                        #{item.installmentNumber || 1}{item.monthlyPlanId ? (item.monthlyPlanSize && ` de ${item.monthlyPlanSize}`) : ` de ${item.totalInstallments || 1}`}
                                                     </span>
                                                     {item.saleId?._id && (
                                                         <Link
