@@ -229,6 +229,12 @@ export default function CuotasPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {canCreatePlan && (
+                        <button onClick={() => setMonthlyPlanOpen(true)}
+                            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5">
+                            <Plus size={16} /> Generar cuotas
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsCreateInstallmentOpen(true)}
                         className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-lg shadow-blue-500/10"
