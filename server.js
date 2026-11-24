@@ -497,7 +497,7 @@ app.get('/api/admin/stock/checklist', authenticateToken, async (req, res) => {
 
         await connectDB();
         const cars = await Car.find({ status: { $nin: ['Cancelado', 'Vendido'] }, sold: { $ne: true } })
-            .select('_id brand name model version year plateOrVin km color status coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices createdAt')
+            .select('_id brand name model version year plateOrVin km color status coverImage images hasManuals hasDuplicateKeys hasCricket hasWheelWrench hasOfficialServices checklistPhotos createdAt')
             .sort({ status: 1, brand: 1, name: 1 })
             .lean();
 
@@ -558,6 +558,16 @@ app.patch('/api/admin/stock/checklist/:id', authenticateToken, async (req, res) 
             car.hasOfficialServices = normalizeVal(req.body.hasOfficialServices);
             updates.hasOfficialServices = car.hasOfficialServices;
         }
+        if (req.body.checklistPhotos && typeof req.body.checklistPhotos === 'object') {
+            if (!car.checklistPhotos) car.checklistPhotos = {};
+            const photoKeys = ['manuals', 'duplicateKeys', 'cricket', 'wheelWrench', 'officialServices'];
+            for (const pKey of photoKeys) {
+                if (req.body.checklistPhotos[pKey] !== undefined) {
+                    car.checklistPhotos[pKey] = String(req.body.checklistPhotos[pKey] || '').trim();
+                    updates[`checklistPhotos.${pKey}`] = car.checklistPhotos[pKey];
+                }
+            }
+        }
 
         const userName = user?.name || user?.username || user?.email || 'Lucas';
         if (!car.auditLog) car.auditLog = [];
@@ -579,7 +589,8 @@ app.patch('/api/admin/stock/checklist/:id', authenticateToken, async (req, res) 
                 hasDuplicateKeys: car.hasDuplicateKeys,
                 hasCricket: car.hasCricket,
                 hasWheelWrench: car.hasWheelWrench,
-                hasOfficialServices: car.hasOfficialServices
+                hasOfficialServices: car.hasOfficialServices,
+                checklistPhotos: car.checklistPhotos || {}
             }
         });
     } catch (error) {
