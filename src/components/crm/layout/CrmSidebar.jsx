@@ -5,7 +5,7 @@ import { X, Wrench } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { canAccessCrmPath, hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
+import { canAccessCrmPath, canReadRentabilidad, hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
 
 const menuGroups = [
     {
@@ -60,6 +60,12 @@ const menuGroups = [
         name: 'DIRECCIÓN ESTRATÉGICA',
         isStrategic: true,
         items: [
+            {
+                name: 'Rentabilidad',
+                path: '/admin/rentabilidad',
+                icon: '📈',
+                prefetch: false
+            },
             {
                 name: 'Tesorería Estratégica',
                 path: '/admin/tesoreria-estrategica',
@@ -135,6 +141,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Capital mensual') return hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_READ);
         if (itemName === 'Dictar gasto') return hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
         if (itemName === 'Tesorería') return hasPermission(user, PERMISSIONS.CAJA_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        if (itemName === 'Rentabilidad') return canReadRentabilidad(user);
         if (itemName === 'Tesorería Estratégica') return user?.role === 'owner' || user?.role === 'admin';
         if (itemName === 'Liquidaciones') return hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
         if (itemName === 'Mis comisiones') return hasPermission(user, PERMISSIONS.COMISIONES_READ);

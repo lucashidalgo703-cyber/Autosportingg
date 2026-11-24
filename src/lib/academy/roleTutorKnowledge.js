@@ -130,21 +130,30 @@ export const TUTOR_PROCEDURES = [
     },
     {
         id: 'PROC-ADM-01',
-        version: 'v1.1',
+        version: 'v1.2',
         code: 'PROC-ADM-01',
         title: 'Preparación, Validación de Datos y Emisión de Comprobantes ARCA',
         category: 'administracion',
         scope: 'Equipo de Administración',
-        status: 'Aprobado por Contaduría y Dirección',
-        lastUpdated: '2026-11-20',
-        content: `1. Distinguir borrador en CRM de factura emitida con CAE. Un borrador no tiene validez tributaria.
-2. Contrastar CUIT en padrón ARCA/AFIP: Responsables Inscriptos llevan Factura A; Monotributistas y particulares llevan Factura B.
-3. Diferenciar venta de stock propio (factura por el valor total de la unidad) de consignación de terceros (factura únicamente por la comisión pactada de intermediación).`,
+        status: 'Pendiente de validación por Contador Público',
+        lastUpdated: '2026-11-22',
+        content: `1. Distinguir borrador en CRM de factura emitida con CAE. Un borrador comercial no tiene validez tributaria ni contable.
+2. Determinar el comprobante aplicable según la condición fiscal del emisor y receptor (Matriz Oficial de Comprobantes ARCA - Ley 27.618 y RG 5003):
+   - Emisor Responsable Inscripto → Receptor Responsable Inscripto: Factura "A" (o M / A con CBU informado según habilitación).
+   - Emisor Responsable Inscripto → Receptor Monotributista: Factura "A", discriminando el gravamen con la leyenda obligatoria sobre sostenimiento e inclusión fiscal y el subtipo habilitado. ARCA no rechaza la Factura A a monotributistas; es la norma aplicable.
+   - Emisor Responsable Inscripto → Receptor Consumidor Final o Sujeto Exento: Factura "B".
+   - Emisor Monotributista: Factura "C" a cualquier destinatario.
+3. Diferenciar venta de stock propio (facturación por el valor total de la unidad) de consignación de terceros (facturación únicamente por la comisión pactada de intermediación comercial).`,
         keyQuestions: [
+            {
+                trigger: 'que factura emitir a un monotributista',
+                keywords: ['factura a monotributista', 'factura b monotributista', 'monotributo arca', 'comprobante monotributista', 'matriz arca comprobantes', 'emisor responsable inscripto monotributista'],
+                summary: 'Conforme a la matriz oficial de comprobantes de ARCA (Ley 27.618 y RG 5003), cuando el emisor es Responsable Inscripto y el receptor es Monotributista corresponde emitir Factura "A" (o subtipo autorizado como M / A con CBU), discriminando el IVA y consignando la leyenda obligatoria para el receptor. La Factura B se reserva para Consumidores Finales o Sujetos Exentos. Si el emisor fuera Monotributista, emite Factura C. [PROC-ADM-01 v1.2 — Pendiente de validación por Contador Público].'
+            },
             {
                 trigger: 'como facturar una consignacion',
                 keywords: ['facturar consignacion', 'comision consignacion', 'iva consignacion', 'arca afip factura'],
-                summary: 'En consignaciones de terceros, la agencia no es dueña del auto. Solo factura la comisión por intermediación comercial (Factura A o B según el cliente) con IVA sobre dicha comisión, adjuntando la liquidación oficial de consignación.'
+                summary: 'En consignaciones de terceros, la agencia no es dueña del auto. Solo factura la comisión por intermediación comercial (Factura A si el comprador es RI o Monotributista con leyenda; Factura B si es Consumidor Final o Exento) con IVA sobre dicha comisión, adjuntando la liquidación oficial de consignación.'
             }
         ]
     },

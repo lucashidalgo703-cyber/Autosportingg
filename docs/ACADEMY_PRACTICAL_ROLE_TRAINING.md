@@ -68,7 +68,7 @@ Base técnica: `origin/main` (`724f4b8`), integrando la base validada de Academy
 ### D. Tres Módulos para Administración y Facturación
 1. **`admin-preparacion-validacion` (MOD-ADM-01 v1.0.0)** — *Preparación y validación de datos*:
    - Diferenciación estricta entre borrador cargado en CRM, documento preparado y comprobante fiscal emitido con CAE en ARCA/AFIP.
-   - Condiciones impositivas (Responsable Inscripto -> Factura A; Monotributo / Consumidor Final -> Factura B).
+   - Matriz oficial de comprobantes ARCA (Ley 27.618 y RG 5003): Emisor Responsable Inscripto → Receptor Responsable Inscripto o Monotributista (Factura A con leyenda y subtipo habilitado); Receptor Consumidor Final o Exento (Factura B); Emisor Monotributista (Factura C).
    - Régimen de consignaciones (facturación de comisión por cuenta y orden de terceros) vs venta de stock propio.
 2. **`admin-cobros-comprobantes` (MOD-ADM-02 v1.0.0)** — *Cobros, comprobantes e imputaciones*:
    - Regla de Oro: Un ticket o captura de pantalla de transferencia de WhatsApp NO es un cobro.

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useAcademyProgress } from './AcademyProgressProvider';
-import { ALL_ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
+import { ROLE_SIMULATIONS, ALL_ROLE_SIMULATIONS } from '../../../lib/academy/roleSimulations';
 
 export default function AcademyPracticar() {
     const [selectedCaseId, setSelectedCaseId] = useState(ALL_ROLE_SIMULATIONS[0].id);

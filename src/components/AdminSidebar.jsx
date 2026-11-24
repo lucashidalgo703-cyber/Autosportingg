@@ -52,6 +52,7 @@ const MENU_GROUPS = [
     {
         title: "Dirección Estratégica",
         items: [
+            { id: 'rentabilidad', label: 'Rentabilidad', icon: TrendingUp, path: '/admin/rentabilidad' },
             { id: 'tesoreria-estrategica', label: 'Tesorería Estratégica', icon: ShieldCheck, path: '/admin/tesoreria-estrategica' }
         ]
     },

@@ -672,6 +672,14 @@ function simulateTutorKnowledgeResponse(userMessage, userRole) {
 3. La entrega del vehículo no se realiza sin que la transferencia esté formalmente ingresada ante el Registro Seccional competente.`;
     }
 
+    if (text.includes('monotribut') || text.includes('factura a') || text.includes('factura b') || text.includes('matriz arca') || text.includes('tipo de factura')) {
+        return `Sobre determinación de comprobantes según la Matriz Oficial de ARCA (PROC-ADM-01 v1.2):
+1. Emisor Responsable Inscripto → Receptor Responsable Inscripto o Monotributista: Factura "A" (con leyenda reglamentaria sobre inclusión fiscal y subtipo autorizado).
+2. Emisor Responsable Inscripto → Receptor Consumidor Final o Sujeto Exento: Factura "B".
+3. Emisor Monotributista: Factura "C" a cualquier destinatario.
+[PROC-ADM-01 v1.2 — Pendiente de validación por Contador Público].`;
+    }
+
     if (text.includes('factura') || text.includes('pago') || text.includes('transferencia no acreditada')) {
         return `Sobre cobranzas y facturación (PROC-ADM-01 / PROC-ADM-02):
 1. Transferencias: Ningún vehículo ni recibo definitivo se libera contra 'comprobante de pantalla' de celular. Debe verificarse la acreditación real en el extracto de cuenta bancaria.

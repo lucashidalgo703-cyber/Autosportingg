@@ -1069,21 +1069,30 @@ Todo expediente en el CRM debe contener 4 secciones perfectamente identificadas:
         title: 'Preparación y validación de datos',
         role: MODULE_ROLES.ADMINISTRACION,
         roleLabel: 'Administración y Facturación',
-        status: MODULE_STATUS.PUBLISHED,
-        reviewDate: '2026-11-20',
+        status: MODULE_STATUS.IN_REVIEW,
+        reviewDate: '2026-11-22',
         durationMinutes: 8,
-        sources: ['Normativa de Facturación ARCA / AFIP - RG 1415 y complementarias', 'Manual Administrativo AutoSporting PROC-ADM-01', 'Régimen Informativo de Operaciones con Automotores Usados'],
+        sources: [
+            'Normativa de Facturación ARCA / AFIP - Matriz Oficial de Comprobantes (Ley 27.618 y RG 5003)',
+            'Manual Administrativo AutoSporting PROC-ADM-01',
+            'Régimen Informativo de Operaciones con Automotores Usados'
+        ],
         requiresProfessionalValidation: true,
-        validationNote: 'Sujeto a verificación tributaria periódica por el Contador Público de la agencia.',
-        objective: 'Aprender a reunir, contrastar y validar la información tributaria y contractual de comprador, vendedor y unidad antes de emitir comprobantes fiscales, distinguiendo borradores de facturas formalmente emitidas.',
-        importance: 'Emitir una factura con CUIT erróneo, condición fiscal equivocada (IVA) o alícuota incorrecta genera multas de ARCA/AFIP, inconsistencias en el Libro IVA Ventas y problemas graves de cómputo para el cliente.',
+        validationNote: 'Pendiente de validación formal del Contador Público externo tras adecuación a la matriz oficial de comprobantes ARCA.',
+        objective: 'Aprender a reunir, contrastar y validar la información tributaria y contractual de comprador, vendedor y unidad antes de emitir comprobantes fiscales, distinguiendo borradores de facturas formalmente emitidas y aplicando la matriz oficial de comprobantes de ARCA.',
+        importance: 'Emitir una factura con CUIT erróneo, condición fiscal equivocada (IVA) o comprobante improcedente genera multas de ARCA/AFIP, inconsistencias en el Libro IVA Ventas y problemas graves de cómputo para el cliente.',
         explanation: `Las 3 Etapas Fundamentales de la Facturación:
 1. Operación Cargada en Borrador en el CRM:
    - Es una propuesta comercial generada por Ventas. No tiene valor contable ni fiscal. Puede ser modificada o anulada sin impacto impositivo.
 2. Documentación Preparada y Auditada:
    - Administración verifica en la base de ARCA/AFIP:
      a) Constancia de CUIT/CUIL del comprador con estado activo y sin bloqueo de actividades.
-     b) Condición tributaria: Responsable Inscripto (emisión de Factura A sujeta a reglamentación), Monotributista o Consumidor Final (Factura B).
+     b) Matriz Oficial de Comprobantes según condición tributaria de emisor y receptor:
+        - Si la agencia (emisor) es Responsable Inscripto:
+          * Hacia receptor Responsable Inscripto: Factura "A" (o comprobantes clase M o A con CBU informado, según habilitación de ARCA).
+          * Hacia receptor Monotributista (Régimen Simplificado): Factura "A", con la leyenda correspondiente al receptor sobre el régimen de sostenimiento e inclusión fiscal (Ley 27.618 / RG 5003) y el subtipo autorizado al emisor. ARCA no rechaza la Factura A a monotributistas; al contrario, es el comprobante exigido reglamentariamente.
+          * Hacia receptor Consumidor Final o Sujeto Exento: Factura "B".
+        - Si el emisor fuera Monotributista: emite Factura "C" a cualquier destinatario.
      c) Régimen especial de bienes usados: Identificar si la operación es venta propia (stock de la agencia) o comisión por consignación (intermediación comercial por cuenta y orden de terceros, gravada solo sobre la comisión).
 3. Comprobante Efectivamente Emitido y Autorizado:
    - Factura electrónica con CAE (Código de Autorización Electrónico) y código QR generado a través del web service oficial de ARCA/AFIP.
@@ -1100,7 +1109,7 @@ Controles obligatorios antes de facturar:
 - Acción correcta de Administración: Corrige la ficha, solicita la constancia de CUIT de Transportes del Sur SRL y prepara la Factura A correspondiente previa validación del pago.`,
         checklist: [
             'Verificar constancia de inscripción en ARCA/AFIP actualizada del comprador.',
-            'Determinar con precisión el tipo de comprobante aplicable (Factura A, B o liquidación de consignación).',
+            'Determinar el tipo de comprobante cruzando la condición fiscal del emisor y receptor según la matriz oficial de ARCA (RI a RI o Monotributista: Factura A con leyenda; RI a Consumidor Final/Exento: Factura B; Monotributista emisor: Factura C; o liquidación de consignación).',
             'Cotejar que datos de la unidad (patente, motor, chasis) coincidan con el legajo de Gestoría.',
             'Revisar las alícuotas impositivas aplicables y las percepciones de Ingresos Brutos Chubut.',
             'Nunca considerar un borrador del CRM como una factura emitida hasta obtener el CAE oficial.'
@@ -1123,22 +1132,22 @@ Controles obligatorios antes de facturar:
         situationalQuestions: [
             {
                 id: 'adm-pre-q1',
-                question: 'Un cliente concurre a la agencia y te pide que le emitas una Factura "A" por la compra de un automóvil particular, pero al consultar su CUIT en el padrón de ARCA/AFIP figura inscripto únicamente como "Monotributista Categoría C". ¿Qué tipo de comprobante debés emitir?',
+                question: 'La agencia AutoSporting (contribuyente Responsable Inscripto en IVA) vende una unidad de stock propio a un cliente que presenta CUIT y en el padrón oficial de ARCA figura inscripto en el Régimen Simplificado ("Monotributista Categoría C"). Según la matriz oficial de comprobantes de ARCA, ¿qué tipo de comprobante debe emitir la agencia?',
                 options: [
                     {
-                        text: 'Emitir Factura "A" de todas formas porque el cliente insiste y tiene CUIT.',
-                        isCorrect: false,
-                        feedback: 'Incorrecto. El sistema de ARCA/AFIP rechaza la emisión de Factura A a Monotributistas, y forzarlo viola las normas de facturación de la RG 1415.'
-                    },
-                    {
-                        text: 'Explicar que de acuerdo con la normativa vigente de ARCA/AFIP, a los contribuyentes Monotributistas corresponde emitirles Factura tipo "B" (o Factura electrónica B a Consumidor Final/Monotributo con CUIT consignado).',
+                        text: 'Emitir Factura tipo "A" (o subtipo autorizado según habilitación de ARCA), consignando la condición del receptor como Monotributista y la leyenda reglamentaria sobre crédito fiscal e inclusión (Ley 27.618 / RG 5003).',
                         isCorrect: true,
-                        feedback: '¡Correcto! Aplica estrictamente la correlación fiscal correspondiente al régimen tributario del comprador.'
+                        feedback: '¡Correcto! Conforme a la matriz oficial de comprobantes de ARCA, un emisor Responsable Inscripto que opera con un receptor Monotributista debe emitir Factura "A" con discriminación de gravamen, la leyenda reglamentaria para el receptor y el subtipo habilitado.'
                     },
                     {
-                        text: 'No hacerle ninguna factura y darle un papel borrador escrito en una servilleta.',
+                        text: 'Emitir Factura tipo "B" porque el comprador es Monotributista y la Factura A es de uso exclusivo entre Responsables Inscriptos.',
                         isCorrect: false,
-                        feedback: 'Incorrecto. Toda operación comercial de la agencia debe respaldarse con comprobante fiscal autorizado.'
+                        feedback: 'Incorrecto. De acuerdo con la matriz oficial vigente de ARCA (Ley 27.618 y RG 5003), los Responsables Inscriptos deben emitir Factura A a Monotributistas con leyenda informativa. La Factura B se reserva para Consumidores Finales o Sujetos Exentos.'
+                    },
+                    {
+                        text: 'Emitir Factura tipo "C" porque al intervenir un Monotributista el comprobante adopta automáticamente esa letra.',
+                        isCorrect: false,
+                        feedback: 'Incorrecto. La Factura C es emitida únicamente cuando el emisor es Monotributista o Exento. La letra del comprobante la define primariamente la condición del emisor en cruce con el receptor, no la sola intervención de un pequeño contribuyente.'
                     }
                 ]
             },

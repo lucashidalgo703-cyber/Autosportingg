@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import CrmCard from '../ui/CrmCard';
 import { 
-    Edit, DollarSign, CheckCircle2, Clock, AlertTriangle, X, 
+    Edit, DollarSign, TrendingUp, CheckCircle2, Clock, AlertTriangle, X, 
     RefreshCw, History, Calendar, FileText, Link2, Eye, 
     AlertCircle, Info, Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { hasPermission, canReadRentabilidad, PERMISSIONS } from '../../../utils/adminPermissions';
 import { getCarPurchasePaymentSummary, LOADED_COMPANIES } from '../../../utils/carPurchasePayment';
 import { formatStockMoney } from '../../../utils/inventoryStock';
 
@@ -479,7 +479,19 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     return (
         <CrmCard>
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-semibold text-lg">Resumen Financiero</h3>
+                <h3 className="text-white font-semibold text-lg flex items-center gap-2">
+                    Resumen Financiero
+                    {canReadRentabilidad(user) && (
+                        <a
+                            href={`/admin/rentabilidad?search=${encodeURIComponent(vehicle.dominio || vehicle.plateOrVin || vehicle.name || '')}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 rounded hover:bg-purple-500/25 transition-colors"
+                            title="Ver análisis completo en el nuevo módulo de Rentabilidad"
+                        >
+                            <TrendingUp size={12} />
+                            Rentabilidad Real →
+                        </a>
+                    )}
+                </h3>
                 {onEdit && (
                     <button 
                         onClick={onEdit} 

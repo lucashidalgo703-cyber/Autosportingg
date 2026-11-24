@@ -33,6 +33,7 @@ export const PERMISSIONS = {
     VENTAS_CANCEL: 'ventas.cancel',
     FINANZAS_READ: 'finanzas.read',
     FINANZAS_WRITE: 'finanzas.write',
+    RENTABILIDAD_READ: 'rentabilidad.read',
     FACTURACION_READ: 'facturacion.read',
     FACTURACION_WRITE: 'facturacion.write',
     FINANCIAL_PILOT_READ: 'financialPilot.read',
@@ -259,6 +260,7 @@ export const canAccessCrmPath = (user, rawPath) => {
     if (/^\/admin\/facturacion(?:\/|$)/i.test(path)) return canReadVehicleInvoices(user);
     if (/^\/admin\/capital-mensual(?:\/|$)/i.test(path)) return canReadCapitalHistory(user);
     if (/^\/admin\/autosporting-ai(?:\/|$)/i.test(path)) return canReadFinancialPilot(user);
+    if (/^\/admin\/rentabilidad(?:\/|$)/i.test(path)) return canReadRentabilidad(user);
     if (!isSalesRole(user)) return true;
     return !/^\/admin(?:$|\/(?:ventas|legacy|analitica)(?:\/|$)|\/stock\/)/i.test(path);
 };
@@ -277,6 +279,17 @@ export const canReadFinancialPilot = user => user?.role === ROLES.OWNER ||
     (user?.role === ROLES.ADMIN && Array.isArray(user.permissions) && user.permissions.includes(PERMISSIONS.FINANCIAL_PILOT_READ));
 export const canReadCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_READ);
 export const canWriteCapitalHistory = user => user?.role === ROLES.OWNER && hasPermission(user, PERMISSIONS.CAPITAL_HISTORY_WRITE);
+export const canReadRentabilidad = (user) => {
+    if (!user) return false;
+    if (user.role === ROLES.OWNER) return true;
+    if (isSalesRole(user)) return false;
+    return Boolean(
+        user.permissions?.includes(PERMISSIONS.RENTABILIDAD_READ) ||
+        user.permissions?.includes(PERMISSIONS.FINANZAS_READ) ||
+        (user.role === ROLES.ADMIN && hasPermission(user, PERMISSIONS.FINANZAS_READ))
+    );
+};
+
 
 // Labels and descriptions are shared by user assignment and the role catalog.
 // Existing database role values remain valid; no account is changed by selecting
@@ -326,6 +339,7 @@ export const roleAccessSummary = user => {
     add(permission(PERMISSIONS.GESTORIA_READ), 'Gestoría', writeDetail(PERMISSIONS.GESTORIA_WRITE));
     add(canReadVehicleInvoices(user), 'Facturación / ARCA', canWriteVehicleInvoices(user) ? 'Registro y revisión de facturas de vehículos comprados y vendidos' : 'Consulta de facturas registradas');
     add(canReadCapitalHistory(user), 'Capital mensual', 'Evolución del capital propio por mes y moneda; registro reservado al propietario');
+    add(canReadRentabilidad(user), 'Rentabilidad', 'Rentabilidad real por vehículo, análisis de márgenes, rotación y eficiencia de capital');
     add(permission(PERMISSIONS.CLIENTES_READ), 'Clientes', user.role === ROLES.VENTAS
         ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
     add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : canCompleteStockPlate(user) ? 'Consulta, simulación y carga del dominio cuando falta' : 'Consulta y simulación de ofertas');
