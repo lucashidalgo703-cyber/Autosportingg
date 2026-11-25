@@ -22,13 +22,14 @@ import toast from 'react-hot-toast';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS, canReadStockNegotiation, canReadCapitalHistory, isSalesRole } from '../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, canReadStockNegotiation, canReadCapitalHistory, isSalesRole, canManageStockMedia, canPublishStock } from '../../../utils/adminPermissions';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
 import StrategicRotationPanel from '../../../components/crm/stock/rotation/StrategicRotationPanel';
 import VehicleIntakeModal from '../../../components/crm/stock/VehicleIntakeModal';
 import StockChecklistPanel from '../../../components/crm/stock/StockChecklistPanel';
+import StockPublicationPanel from '../../../components/crm/stock/StockPublicationPanel';
 
 
 export default function AdminStockPage() {
@@ -46,6 +47,7 @@ function RestrictedStockPage({ user }) {
             const params = new URLSearchParams(window.location.search);
             const tabParam = params.get('tab');
             if (tabParam === 'negotiation' || tabParam === 'inventory') return 'negotiation';
+            if (tabParam === 'publication') return 'publication';
             if (tabParam === 'prioridades') return 'prioridades';
             if (tabParam === 'checklist' || tabParam === 'equipamiento') return 'checklist';
         }
@@ -57,6 +59,7 @@ function RestrictedStockPage({ user }) {
         const params = new URLSearchParams(window.location.search);
         const tabParam = params.get('tab');
         if (tabParam === 'negotiation' || tabParam === 'inventory') setSellerTab('negotiation');
+        else if (tabParam === 'publication') setSellerTab('publication');
         else if (tabParam === 'prioridades') setSellerTab('prioridades');
         else if (tabParam === 'checklist' || tabParam === 'equipamiento') setSellerTab('checklist');
     }, []);
@@ -64,10 +67,10 @@ function RestrictedStockPage({ user }) {
     return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
         <CrmPageHeader 
             title="Stock" 
-            subtitle={sellerTab === 'checklist' ? 'Control de equipamiento, duplicados, manuales y services de cada unidad.' : sellerTab === 'prioridades' ? 'Prioridades comerciales y directivas de stock autorizadas.' : 'Negociación de contado de las unidades disponibles.'} 
+            subtitle={sellerTab === 'publication' ? 'Fotos y publicación de los vehículos en el catálogo.' : sellerTab === 'checklist' ? 'Control de equipamiento, duplicados, manuales y services de cada unidad.' : sellerTab === 'prioridades' ? 'Prioridades comerciales y directivas de stock autorizadas.' : 'Negociación de contado de las unidades disponibles.'}
             actions={hasPermission(user, PERMISSIONS.STOCK_SUBMIT) && <CrmButton type="button" onClick={() => setIntakeOpen(true)}><Plus size={16}/> Solicitar alta de vehículo</CrmButton>}
         />
-        <div className="flex gap-4 border-b border-crm-border pb-2">
+        <div className="flex flex-wrap gap-4 border-b border-crm-border pb-2">
             <button
                 type="button"
                 onClick={() => setSellerTab('checklist')}
@@ -97,8 +100,9 @@ function RestrictedStockPage({ user }) {
                     Negociación de Contado
                 </button>
             )}
+            {(canManageStockMedia(user) || canPublishStock(user)) && <button type="button" onClick={() => setSellerTab('publication')} className={`text-xs font-black uppercase tracking-wider pb-2 border-b-2 transition-all ${sellerTab === 'publication' ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted hover:text-white'}`}>Fotos y catálogo</button>}
         </div>
-        {sellerTab === 'checklist' ? (
+        {sellerTab === 'publication' ? <StockPublicationPanel/> : sellerTab === 'checklist' ? (
             <StockChecklistPanel />
         ) : sellerTab === 'prioridades' ? (
             <StrategicRotationPanel />

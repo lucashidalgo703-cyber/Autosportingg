@@ -44,6 +44,16 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
         };
     }, [vehicleId]);
 
+    const openFraming = (index) => {
+        const savedImages = vehicle?.fotos || vehicle?.images || [];
+        if (files.length !== savedImages.length || files.some((file, i) => !file.isExisting || file.url !== savedImages[i])) {
+            toast.error('Guardá las imágenes antes de ajustar el encuadre.');
+            return;
+        }
+        setFramingInitialIndex(index);
+        setShowFramingModal(true);
+    };
+
     const handleDragStart = (index) => {
         if (!imageActionsDisabled) setDraggedIndex(index);
     };
@@ -211,7 +221,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
 
     return (
         <CrmCard>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                 <h3 className="text-white font-semibold text-lg flex items-center gap-2">
                     <ImageIcon size={18} className="text-crm-fg-muted" />
                     Imágenes del vehículo
@@ -222,8 +232,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                             type="button"
                             disabled={imageActionsDisabled}
                             onClick={() => {
-                                setFramingInitialIndex(0);
-                                setShowFramingModal(true);
+                                openFraming(0);
                             }}
                             className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-crm-surface-raised hover:bg-crm-border text-white transition-colors flex items-center gap-1.5 border border-crm-border hover:border-crm-red"
                             title="Ajustar cómo se encuadra la foto en el catálogo y ficha"
@@ -286,8 +295,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                     disabled={imageActionsDisabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setFramingInitialIndex(i);
-                                        setShowFramingModal(true);
+                                        openFraming(i);
                                     }}
                                     className="absolute bottom-1 left-1 bg-black/80 hover:bg-crm-red text-white p-1 rounded z-20 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
                                 >

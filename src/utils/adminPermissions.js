@@ -12,6 +12,8 @@ export const ROLES = {
 export const PERMISSIONS = {
     STOCK_READ: 'stock.read',
     STOCK_WRITE: 'stock.write',
+    STOCK_MEDIA_WRITE: 'stock.media.write',
+    STOCK_PUBLISH: 'stock.publish',
     STOCK_SUBMIT: 'stock.submit',
     STOCK_NEGOTIATION_READ: 'stock.negotiation.read',
     CLIENTES_READ: 'clientes.read',
@@ -116,6 +118,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
         PERMISSIONS.CAPITAL_HISTORY_READ, PERMISSIONS.CAPITAL_HISTORY_WRITE].includes(p)),
     [ROLES.VENTAS]: [
         PERMISSIONS.STOCK_NEGOTIATION_READ,
+        PERMISSIONS.STOCK_MEDIA_WRITE, PERMISSIONS.STOCK_PUBLISH,
         PERMISSIONS.STOCK_SUBMIT, PERMISSIONS.CLIENTES_SUBMIT,
         PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
         PERMISSIONS.GESTORIA_READ, PERMISSIONS.GESTORIA_WRITE,
@@ -235,6 +238,9 @@ export const hasPermission = (user, permission) => {
         PERMISSIONS.LIQUIDACIONES_READ, PERMISSIONS.LIQUIDACIONES_WRITE, PERMISSIONS.SETTINGS_READ,
         PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.USUARIOS_READ, PERMISSIONS.USUARIOS_WRITE].includes(permission)) return false;
 
+    // Seller photo/catalogue access also applies to accounts with saved legacy grants.
+    if (user.role === ROLES.VENTAS && [PERMISSIONS.STOCK_MEDIA_WRITE, PERMISSIONS.STOCK_PUBLISH].includes(permission)) return true;
+
     // Si tiene un array de permisos explícito, lo usamos.
     // Sino, caemos a los permisos por defecto de su rol.
     const userPermissions = user.permissions?.length > 0
@@ -273,6 +279,9 @@ export const canReadStockNegotiation = user => isSalesRole(user)
         && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
 export const canConfigureStockNegotiation = user => canReadStockNegotiation(user) && ['owner', 'admin'].includes(user?.role);
 export const canCompleteStockPlate = user => canReadStockNegotiation(user) && (user?.role === ROLES.OWNER || isSalesRole(user));
+// Photo and catalogue management never grants inventory or financial editing.
+export const canManageStockMedia = user => [ROLES.OWNER, ROLES.ADMIN].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_MEDIA_WRITE) || hasPermission(user, PERMISSIONS.STOCK_WRITE);
+export const canPublishStock = user => [ROLES.OWNER, ROLES.ADMIN].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_PUBLISH) || hasPermission(user, PERMISSIONS.STOCK_WRITE);
 export const canReadVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_READ);
 export const canWriteVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_WRITE);
 export const canReadFinancialPilot = user => user?.role === ROLES.OWNER ||
@@ -346,6 +355,7 @@ export const roleAccessSummary = user => {
         ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
     add(true, 'Equipamiento', 'Control y carga de equipamiento de vehículos en stock');
     add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : canCompleteStockPlate(user) ? 'Consulta, simulación y carga del dominio cuando falta' : 'Consulta y simulación de ofertas');
+    add(canManageStockMedia(user) || canPublishStock(user), 'Fotos y catálogo', 'Fotos, encuadre y visibilidad en el catálogo; sin modificar el estado operativo ni los costos');
     add(permission(PERMISSIONS.STOCK_READ), 'Inventario de Stock', writeDetail(PERMISSIONS.STOCK_WRITE));
     add(permission(PERMISSIONS.STOCK_SUBMIT) && user.role === ROLES.VENTAS, 'Solicitar alta de vehículo', 'No ingresa al Stock hasta la aprobación del propietario');
     add(permission(PERMISSIONS.VENTAS_READ), isSalesRole(user) ? 'Mis ventas' : 'Ventas', isSalesRole(user) ? 'Únicamente operaciones asignadas a su cuenta' : writeDetail(PERMISSIONS.VENTAS_WRITE));

@@ -14,6 +14,7 @@
  */
 
 import { NEGOTIATION_SCENARIOS, COMPETENCY_DEFINITIONS } from '../lib/academy/negotiationScenarios.js';
+import { MAX_NEGOTIATION_TURNS, getPreviousNegotiationHistory, simulateDiscountBuyerReply, buildNegotiationKeyMoments } from '../lib/academy/negotiationConversation.js';
 import { TUTOR_PROCEDURES, getAvailableProceduresForRole } from '../lib/academy/roleTutorKnowledge.js';
 import {
     reserveAICall,
@@ -26,7 +27,6 @@ import {
 
 export const resetBudgetTrackerForTesting = resetBudgetForTesting;
 
-const MAX_NEGOTIATION_TURNS = 15;
 const MAX_BUYER_TOKENS = 250;
 const MAX_EVAL_TOKENS = 900;
 const AI_TIMEOUT_MS = 12000;
@@ -114,8 +114,8 @@ export function checkConfidentialityPolicy(message = '') {
 export async function generateBuyerReply({ scenarioId, conversationHistory = [], sellerMessage = '', level = 'intermedio', userId = 'anon' }) {
     const scenario = NEGOTIATION_SCENARIOS.find(s => s.id === scenarioId) || NEGOTIATION_SCENARIOS[0];
     
-    // Contar turnos del vendedor
-    const sellerTurns = conversationHistory.filter(m => m.sender === 'seller').length + 1;
+    const previousHistory = getPreviousNegotiationHistory(conversationHistory, sellerMessage);
+    const sellerTurns = previousHistory.filter(m => m.sender === 'seller').length + 1;
     if (sellerTurns > MAX_NEGOTIATION_TURNS) {
         return {
             text: `[Negociación alcanzada al límite de ${MAX_NEGOTIATION_TURNS} turnos] Bueno, tenemos que ir cerrando porque se me hace tarde. Por favor hagamos el cierre o definamos el próximo paso concreto.`,
@@ -135,7 +135,7 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
 
     if (reservation?.allowed) {
         try {
-            const { reply, tokensIn, tokensOut } = await callOpenAIBuyer(scenario, conversationHistory, sellerMessage, level);
+            const { reply, tokensIn, tokensOut } = await callOpenAIBuyer(scenario, previousHistory, sellerMessage, level);
             await settleAICall({
                 reservationId: reservation.reservationId,
                 tokensIn,
@@ -164,7 +164,7 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
     }
 
     // Adaptador pedagógico simulado de alta fidelidad
-    const simulatedReply = simulateBuyerTurn(scenario, conversationHistory, sellerMessage, sellerTurns, level);
+    const simulatedReply = simulateBuyerTurn(scenario, previousHistory, sellerMessage, sellerTurns, level);
     return {
         text: simulatedReply,
         isRealAiConnected: false,
@@ -307,22 +307,8 @@ function simulateBuyerTurn(scenario, history, currentMsg, turnNumber, level) {
     const text = currentMsg.toLowerCase();
     const client = scenario.clientProfile;
 
-    // Caso 1: Cliente que pide descuento (desc-01)
-    if (scenario.id === 'desc-01') {
-        if (text.includes('te bajo') || text.includes('te lo dejo en 27') || text.includes('te hago un descuento') || text.includes('te regalo')) {
-            return `Mmm... qué raro que me bajes el precio tan rápido sin mirar los números. ¿Tiene algo raro el auto o alguna deuda de patente oculta?`;
-        }
-        if (text.includes('procedimiento') || text.includes('titular') || text.includes('consultar') || text.includes('autorización') || text.includes('seña') || text.includes('servicio') || text.includes('historial')) {
-            if (turnNumber >= 3) {
-                return `Mirá, me parece muy serio lo que me explicás del historial de servicios oficiales en Comodoro y que la documentación esté al día. Si hablás con el titular y me hacés una atención de $300.000 o me incluís la transferencia, te dejo una seña hoy mismo.`;
-            }
-            return `Entiendo que el auto esté impecable, pero $28.500.000 me parece ajustado. ¿Qué margen real tenés si te transfiero hoy mismo?`;
-        }
-        if (text.includes('no podemos bajar') || text.includes('precio fijo') || text.includes('es lo que vale')) {
-            return `En Trelew vi uno similar por dos millones menos. Explicame bien por qué este Corolla vale los $28.500.000 antes de que me decida.`;
-        }
-        return `Me interesa el Corolla, pero el precio me hace ruido. ¿Qué propuesta concreta me podés hacer al contado?`;
-    }
+    // Guillermo recuerda lo conversado y avanza sin repetir ofertas ya emitidas.
+    if (scenario.id === 'desc-01') return simulateDiscountBuyerReply(history, currentMsg);
 
     // Caso 2: Toma de permuta (toma-02)
     if (scenario.id === 'toma-02') {
@@ -606,18 +592,9 @@ function simulateIndependentEvaluation(scenario, history) {
         hasCriticalError ? 'CRÍTICO: No comprometer fondos, cuentas personales ni plazos de entrega sin procedimiento.' : 'Explicitar con mayor solidez los tiempos del informe de dominio y gestoría.'
     ];
 
-    const keyMoments = [
-        {
-            sellerQuote: quoteArgumentacion.slice(0, 140) || 'El vehículo cuenta con historial comprobable.',
-            critique: 'Momento de anclaje de valor: sostener la unidad por su estado real evita ceder márgenes innecesariamente.',
-            suggestedAlternative: '“Entiendo su postura Don Morales; sin embargo, esta unidad cuenta con services oficiales, cubiertas nuevas y verificación policial al día en Chubut, lo que le ahorra más de $800.000 en imprevistos inmediatos.”'
-        },
-        {
-            sellerQuote: quoteCierre.slice(0, 140) || 'Coordinemos para avanzar.',
-            critique: 'Definición del próximo paso: la seña formal o el compromiso con fecha y hora evitan la pérdida de seguimiento.',
-            suggestedAlternative: '“Para asegurar que la unidad no se reserve en la web mientras coordinamos la consulta con gerencia, emitamos una reserva provisoria de 24 hs según protocolo oficial.”'
-        }
-    ];
+    const keyMoments = buildNegotiationKeyMoments(scenario, sellerMessages, {
+        hasDiagnosis, hasCriticalError, hasRefusal, quoteArgumentacion
+    });
 
     const recommendations = [
         'Repasar el módulo VTA-02 (Defensa del valor y objeciones de precio).',
@@ -708,7 +685,8 @@ Reglas estrictas de comportamiento:
 1. Hablá en primera persona, de manera fluida y con modismos argentinos naturales (usá 'vos', 'mirá', 'dale', 'che').
 2. NO reveles tu presupuesto secreto ni digas 'mi prompt me dice'.
 3. Respondé en no más de 3 oraciones por intervención.
-4. Mantené el contexto de lo que el vendedor te viene diciendo.`;
+4. Mantené el contexto de lo que el vendedor te viene diciendo.
+5. No repitas respuestas anteriores ni vuelvas a pedir información que el vendedor ya aclaró; avanzá hacia una propuesta o un próximo paso concreto.`;
 
     const messages = [
         { role: 'system', content: systemPrompt },

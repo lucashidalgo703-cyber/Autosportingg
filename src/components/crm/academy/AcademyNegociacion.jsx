@@ -11,11 +11,13 @@ export default function AcademyNegociacion() {
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [sendError, setSendError] = useState('');
     const [isEvaluating, setIsEvaluating] = useState(false);
     const [evaluationReport, setEvaluationReport] = useState(null);
     const [aiStatus, setAiStatus] = useState({ provider: 'simulated', isRealAiConnected: false });
     const [filterLevel, setFilterLevel] = useState('todos');
     const messagesEndRef = useRef(null);
+    const negotiationVersionRef = useRef(0);
 
     // Inicializar chat cuando cambia el escenario
     useEffect(() => {
@@ -27,7 +29,12 @@ export default function AcademyNegociacion() {
     }, [messages]);
 
     const resetNegotiation = (scenario) => {
+        negotiationVersionRef.current += 1;
+        setIsSending(false);
+        setIsEvaluating(false);
         setEvaluationReport(null);
+        setSendError('');
+        setInputMessage('');
         setMessages([
             {
                 id: 'welcome',
@@ -70,8 +77,10 @@ export default function AcademyNegociacion() {
         e?.preventDefault();
         if (!inputMessage.trim() || isSending || isEvaluating || evaluationReport) return;
 
+        const negotiationVersion = negotiationVersionRef.current;
         const userText = inputMessage.trim();
         setInputMessage('');
+        setSendError('');
 
         const newSellerMsg = {
             id: `seller-${Date.now()}`,
@@ -105,6 +114,7 @@ export default function AcademyNegociacion() {
             }
 
             const data = await res.json();
+            if (negotiationVersion !== negotiationVersionRef.current) return;
             setAiStatus({
                 provider: data.provider || 'simulated',
                 isRealAiConnected: Boolean(data.isRealAiConnected)
@@ -120,23 +130,20 @@ export default function AcademyNegociacion() {
                 }
             ]);
         } catch (err) {
+            if (negotiationVersion !== negotiationVersionRef.current) return;
             console.error('[Negotiation Send Error]', err);
-            // Mensaje de respaldo en caso de desconexión
-            setMessages(prev => [
-                ...prev,
-                {
-                    id: `buyer-${Date.now()}`,
-                    sender: 'buyer',
-                    text: `Entiendo su postura. Sigamos analizando las condiciones para ver si llegamos a un acuerdo favorable.`,
-                    timestamp: new Date()
-                }
-            ]);
+            // Un error de red no es una respuesta del cliente ni un turno válido.
+            setMessages(prev => prev.filter(message => message.id !== newSellerMsg.id));
+            setInputMessage(userText);
+            setSendError('No se pudo enviar el mensaje. Tu respuesta sigue escrita para que puedas reintentar.');
         } finally {
-            setIsSending(false);
+            if (negotiationVersion === negotiationVersionRef.current) setIsSending(false);
         }
     };
 
     const handleFinishAndEvaluate = async () => {
+        if (isSending || isEvaluating) return;
+        const negotiationVersion = negotiationVersionRef.current;
         const sellerCount = messages.filter(m => m.sender === 'seller').length;
         if (sellerCount === 0) {
             alert('Debes interactuar al menos una vez con el cliente antes de solicitar la evaluación.');
@@ -161,12 +168,14 @@ export default function AcademyNegociacion() {
 
             if (!res.ok) throw new Error('No se pudo generar la evaluación.');
             const data = await res.json();
+            if (negotiationVersion !== negotiationVersionRef.current) return;
             setEvaluationReport(data);
         } catch (err) {
+            if (negotiationVersion !== negotiationVersionRef.current) return;
             console.error('[Evaluation Error]', err);
             alert('Ocurrió un inconveniente al evaluar la práctica. Reintentá en unos segundos.');
         } finally {
-            setIsEvaluating(false);
+            if (negotiationVersion === negotiationVersionRef.current) setIsEvaluating(false);
         }
     };
 
@@ -228,7 +237,7 @@ export default function AcademyNegociacion() {
                         {sellerTurnsCount > 0 && !evaluationReport && (
                             <button
                                 onClick={handleFinishAndEvaluate}
-                                disabled={isEvaluating}
+                                disabled={isSending || isEvaluating}
                                 className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
                             >
                                 {isEvaluating ? (
@@ -577,12 +586,16 @@ export default function AcademyNegociacion() {
                             </div>
 
                             {/* Barra de entrada de texto libre */}
+                            {sendError && (
+                                <p role="alert" className="px-3 pt-3 text-xs text-rose-300">{sendError}</p>
+                            )}
                             <form
                                 onSubmit={handleSendMessage}
                                 className="p-3 bg-zinc-900 border-t border-zinc-800 flex items-center gap-2"
                             >
                                 <input
                                     type="text"
+                                    maxLength={500}
                                     value={inputMessage}
                                     onChange={(e) => setInputMessage(e.target.value)}
                                     placeholder="Escribí tu respuesta comercial o propuesta aquí..."

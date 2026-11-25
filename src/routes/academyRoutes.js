@@ -144,7 +144,7 @@ export function createAcademyRouter({ authenticate }) {
             throw err;
         }
         const safeSellerMessage = typeof sellerMessage === 'string' ? sellerMessage.slice(0, 500) : '';
-        const safeHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-20) : [];
+        const safeHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-31) : [];
         return await generateBuyerReply({
             scenarioId,
             conversationHistory: safeHistory,

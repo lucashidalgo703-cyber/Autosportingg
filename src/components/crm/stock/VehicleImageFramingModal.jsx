@@ -139,7 +139,7 @@ export default function VehicleImageFramingModal({
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
-            const res = await fetch(`${baseUrl}/api/admin/cars/${carId}`, {
+            const res = await fetch(`${baseUrl}/api/admin/cars/${carId}/images`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -235,9 +235,10 @@ export default function VehicleImageFramingModal({
                 const croppedFile = new File([blob], `foto-${currentIndex + 1}-4x3-${Date.now()}.jpg`, { type: 'image/jpeg' });
                 croppedFile.preview = URL.createObjectURL(croppedFile);
 
-                toast.success(`Recorte 4:3 de foto #${currentIndex + 1} listo`, { id: 'cropper' });
+                toast.success(`Recorte 4:3 de foto #${currentIndex + 1} listo. Guardá las imágenes para conservarlo.`, { id: 'cropper' });
                 if (onCropComplete) {
                     onCropComplete(croppedFile, currentIndex);
+                    onClose();
                 }
                 setIsCropping(false);
             }, 'image/jpeg', 0.92);

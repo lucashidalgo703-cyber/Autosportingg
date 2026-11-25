@@ -9,6 +9,7 @@ import BuyerPaymentProof from './src/models/BuyerPaymentProof.js';
 import { isGestoriaCollection, remainingAppliedDeposit } from './src/utils/collectionDestination.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { resolveCarImageUpdate } from './src/utils/carImageOrder.js';
+import { getStockPublication, getStockPublicationCar, stockPublicationDto, updateStockImages, updateStockPublication } from './src/services/stockPublicationService.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
@@ -87,7 +88,7 @@ import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries,
 import { registerPurchaseAnalyzer } from './src/routes/purchaseAnalyzerRoutes.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
-import { hasPermission, isSalesRole, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
+import { hasPermission, isSalesRole, canManageStockMedia, canPublishStock, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
@@ -2384,88 +2385,26 @@ app.delete('/api/admin/cars/:id/docs/:docKey', authenticateToken, requirePermiss
         return res.status(500).json({ error: error.message });
     }
 });
-// Dedicated PUT endpoint for images
-app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
+// Photo and catalogue actions are independent of general inventory editing.
+const publicationEndpoint = callback => async (req, res) => {
+    try { await connectDB(); res.json(await callback(req)); }
+    catch (error) { res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo guardar o consultar el catálogo. Reintentá.' }); }
+};
+app.get('/api/admin/stock/publication', authenticateToken, publicationEndpoint(req => getStockPublication(req.user, req.query)));
+app.get('/api/admin/stock/publication/:id', authenticateToken, publicationEndpoint(async req => stockPublicationDto(await getStockPublicationCar(req.user, req.params.id), req.user)));
+app.patch('/api/admin/cars/:id/publication', authenticateToken, publicationEndpoint(req => updateStockPublication(req.user, req.params.id, req.body)));
+const prepareStockImages = async (req, res, next) => {
     try {
-        const missingCloudinaryVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
-            .filter((key) => !process.env[key]);
-
-        if (missingCloudinaryVars.length > 0) {
-            return res.status(500).json({
-                message: 'Cloudinary no esta configurado para subir imagenes.',
-                detail: `Faltan variables de entorno: ${missingCloudinaryVars.join(', ')}`
-            });
-        }
-
+        if (!canManageStockMedia(req.user)) return res.status(403).json({ message: 'No tenés permiso para modificar fotos.' });
         await connectDB();
-        const car = await Car.findById(req.params.id);
-        if (!car) return res.status(404).json({ error: 'Car not found' });
-
-        const newUploadedPaths = req.files ? req.files.map(file => file.path) : [];
-        let finalImages = [];
-        const { imageOrder } = req.body;
-
-        if (imageOrder) {
-            try {
-                const order = JSON.parse(imageOrder);
-                finalImages = order.map(item => {
-                    if (item && item.toString().startsWith('__new__')) {
-                        const indexStr = item.split('__new__')[1];
-                        const idx = parseInt(indexStr);
-                        return newUploadedPaths[idx];
-                    } else {
-                        return item;
-                    }
-                }).filter(img => img);
-            } catch (e) {
-                finalImages = [...(car.images || []), ...newUploadedPaths];
-            }
-        } else {
-            finalImages = [...(car.images || []), ...newUploadedPaths];
-        }
-
-        car.images = finalImages;
-        car.coverImage = finalImages.length > 0 ? finalImages[0] : '';
-        if (req.body.imagePositions) {
-            let parsed = req.body.imagePositions;
-            if (typeof parsed === 'string') {
-                try { parsed = JSON.parse(parsed); } catch (_) {}
-            }
-            if (Array.isArray(parsed)) {
-                car.imagePositions = parsed;
-                if (parsed[0]) car.imagePosition = parsed[0];
-                car.markModified('imagePositions');
-            }
-        }
-        if (req.body.imagePosition) {
-            car.imagePosition = req.body.imagePosition;
-            if (!Array.isArray(car.imagePositions) || car.imagePositions.length === 0) {
-                car.imagePositions = [req.body.imagePosition];
-                car.markModified('imagePositions');
-            }
-        }
-
-        const user = req.user ? (req.user.email || req.user.role) : 'System';
-        if (!car.auditLog) car.auditLog = [];
-        car.auditLog.push({
-            action: 'EDICION',
-            field: 'images',
-            user,
-            source: 'CRM_V2',
-            details: `Imágenes actualizadas. Total: ${finalImages.length}`
-        });
-
-        await car.save();
-        res.json({ success: true, images: finalImages, uploadedImages: newUploadedPaths });
-    } catch (err) {
-        console.error('PUT /api/admin/cars/:id/images error:', err);
-        const statusCode = err?.http_code || err?.statusCode || 500;
-        res.status(statusCode).json({
-            message: err?.message || 'Error al guardar imagenes del vehiculo',
-            detail: err?.name || err?.code || 'UPLOAD_ERROR'
-        });
-    }
-});
+        req.stockPublicationCar = await getStockPublicationCar(req.user, req.params.id, { imageEdit: true });
+        next();
+    } catch (error) { res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo consultar el vehículo. Reintentá.' }); }
+};
+app.put('/api/admin/cars/:id/images', authenticateToken, prepareStockImages, upload.array('images', 20),
+    publicationEndpoint(req => updateStockImages(req.user, req.params.id, req.body, req.files || [], req.stockPublicationCar)));
+app.patch('/api/admin/cars/:id/images', authenticateToken, prepareStockImages,
+    publicationEndpoint(req => updateStockImages(req.user, req.params.id, req.body, [], req.stockPublicationCar)));
 
 // PATCH update car
 app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {

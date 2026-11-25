@@ -4,7 +4,7 @@ import { Globe, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
 
-export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
+export default function VehicleWebStatusPanel({ vehicle, onSaveComplete, publicationOnly = false }) {
     const [visibleEnWeb, setVisibleEnWeb] = useState(vehicle?.visibleEnWeb !== false);
     const [status, setStatus] = useState(vehicle?.status || 'Disponible');
     const [isSaving, setIsSaving] = useState(false);
@@ -16,7 +16,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
     const handleSave = async () => {
         try {
             setIsSaving(true);
-            const payload = { visibleEnWeb, status };
+            const payload = publicationOnly ? { visibleEnWeb } : { visibleEnWeb, status };
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
@@ -24,7 +24,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
 
             toast.loading("Actualizando publicación...", { id: 'saveWeb' });
 
-            const response = await fetch(`${baseUrl}/api/admin/cars/${vehicle.id || vehicle._id}`, {
+            const response = await fetch(`${baseUrl}/api/admin/cars/${vehicle.id || vehicle._id}${publicationOnly ? '/publication' : ''}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -68,12 +68,12 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-crm-fg-muted">Estado Operativo</label>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-crm-bg border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red">
+                    {publicationOnly ? <p className="text-sm text-white">{status}</p> : <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-crm-bg border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red">
                         <option value="Disponible">Disponible</option>
                         <option value="Reservado">Reservado</option>
                         <option value="Vendido">Vendido</option>
                         <option value="Pausado">Pausado</option>
-                    </select>
+                    </select>}
                 </div>
 
                 <label className="flex items-center justify-between cursor-pointer p-3 bg-crm-bg border border-crm-border rounded-lg group hover:border-crm-red/50 transition-colors">

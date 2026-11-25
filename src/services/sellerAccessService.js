@@ -3,7 +3,7 @@ import Reservation from '../models/Reservation.js';
 import { BuyerPortalDocument } from '../models/BuyerPortal.js';
 import BuyerDeliveryDocument from '../models/BuyerDeliveryDocument.js';
 import BuyerPaymentProof from '../models/BuyerPaymentProof.js';
-import { hasPermission, isSalesRole, PERMISSIONS, ROLES } from '../utils/adminPermissions.js';
+import { hasPermission, isSalesRole, canManageStockMedia, canPublishStock, PERMISSIONS, ROLES } from '../utils/adminPermissions.js';
 
 const idOf = value => String(value?._id || value || '');
 const validId = value => /^[a-f\d]{24}$/i.test(idOf(value));
@@ -64,10 +64,14 @@ export async function enforceSellerAccess(req, res) {
             || /^\/api\/admin\/sales\/[a-f\d]{24}\/trade-ins\/\d+\/create-stock-car$/.test(path))) {
         fail('El alta requiere autorización. Solicitá el alta desde Clientes o Negociación y esperá la aprobación del propietario.', 403);
     }
-    const blocked = /^\/api\/admin\/(?:cars|dashboard|team-dashboard|offline)(?:\/|$)/.test(path)
+    const stockPresentationWrite = /^\/api\/admin\/cars\/[a-f\d]{24}\/images$/.test(path)
+        && ['PUT', 'PATCH'].includes(req.method) && canManageStockMedia(req.user)
+        || /^\/api\/admin\/cars\/[a-f\d]{24}\/publication$/.test(path)
+        && req.method === 'PATCH' && canPublishStock(req.user);
+    const blocked = /^\/api\/admin\/(?:cars|dashboard|team-dashboard|offline)(?:\/|$)/.test(path) && !stockPresentationWrite
         || /^\/api\/cars(?:\/|$)/.test(path)
         || /^\/api\/stats\/dashboard(?:\/|$)/.test(path)
-        || /^\/api\/admin\/stock(?:\/|$)/.test(path) && !/^\/api\/admin\/stock\/(?:negotiation|rotation\/seller-priority|checklist)(?:\/|$)/.test(path)
+        || /^\/api\/admin\/stock(?:\/|$)/.test(path) && !/^\/api\/admin\/stock\/(?:negotiation|rotation\/seller-priority|checklist|publication)(?:\/|$)/.test(path)
         || /^\/api\/admin\/sales\/[a-f\d]{24}\/trade-in-chain(?:\/|$)/.test(path)
         || /^\/api\/admin\/exports\/stock(?:\/|$)/.test(path);
     if (blocked) fail('Esta sección no está habilitada para vendedores.', 403);
