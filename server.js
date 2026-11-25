@@ -9,7 +9,8 @@ import BuyerPaymentProof from './src/models/BuyerPaymentProof.js';
 import { isGestoriaCollection, remainingAppliedDeposit } from './src/utils/collectionDestination.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { resolveCarImageUpdate } from './src/utils/carImageOrder.js';
-import { getStockPublication, getStockPublicationCar, stockPublicationDto, updateStockImages, updateStockPublication } from './src/services/stockPublicationService.js';
+import { getStockPublication, getStockPublicationCar, stockPublicationDto, updateStockImages, updateStockPublication, getCatalogOrder, updateCatalogOrder } from './src/services/stockPublicationService.js';
+import { publicCatalogQuery, PUBLIC_CATALOG_SORT } from './src/utils/catalogVisibility.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
@@ -1021,10 +1022,7 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
-const publicCatalogQuery = () => ({
-    visibleEnWeb: { $ne: false },
-    status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
-});
+
 
 // GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
@@ -1037,7 +1035,7 @@ app.get('/api/public/cars', async (req, res) => {
         // We exclude specifically 'Vendido', 'Reservado', 'Pausado', 'Cancelado', 'Eliminado'
         const cars = await Car.find(publicCatalogQuery())
             .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions')
-            .sort({ order: 1, createdAt: -1 })
+            .sort(PUBLIC_CATALOG_SORT)
             .lean();
         res.json(cars);
     } catch (error) {
@@ -1051,11 +1049,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
         await connectDB();
         // Ventana máxima de 30s en borde
         res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
-        const car = await Car.findOne({
-            _id: req.params.id,
-            visibleEnWeb: { $ne: false },
-            status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
-        })
+        const car = await Car.findOne({ _id: req.params.id, ...publicCatalogQuery() })
             // A public catalogue detail must not inherit newly added CRM fields.
             // CarDetail uses description, specifications and gallery positions.
             .select('brand name model version year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions description color equipment features doors seats traction motor power gearbox infoAuto.brandName infoAuto.modelName infoAuto.versionName infoAuto.year')
@@ -2391,6 +2385,8 @@ const publicationEndpoint = callback => async (req, res) => {
     catch (error) { res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo guardar o consultar el catálogo. Reintentá.' }); }
 };
 app.get('/api/admin/stock/publication', authenticateToken, publicationEndpoint(req => getStockPublication(req.user, req.query)));
+app.get('/api/admin/stock/publication/order', authenticateToken, publicationEndpoint(req => getCatalogOrder(req.user)));
+app.patch('/api/admin/stock/publication/order', authenticateToken, publicationEndpoint(req => updateCatalogOrder(req.user, req.body)));
 app.get('/api/admin/stock/publication/:id', authenticateToken, publicationEndpoint(async req => stockPublicationDto(await getStockPublicationCar(req.user, req.params.id), req.user)));
 app.patch('/api/admin/cars/:id/publication', authenticateToken, publicationEndpoint(req => updateStockPublication(req.user, req.params.id, req.body)));
 const prepareStockImages = async (req, res, next) => {

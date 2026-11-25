@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Camera, Globe, Search } from 'lucide-react';
+import { Camera, Globe, Search, ListOrdered } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { canManageStockMedia, canPublishStock } from '../../../utils/adminPermissions';
 import CrmButton from '../ui/CrmButton';
@@ -8,6 +8,7 @@ import CrmCard from '../ui/CrmCard';
 import CrmPagination from '../ui/CrmPagination';
 import VehicleImagesPanel from './VehicleImagesPanel';
 import VehicleWebStatusPanel from './VehicleWebStatusPanel';
+import CatalogOrderPanel from './CatalogOrderPanel';
 
 const endpoint = () => (process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001')) + '/api/admin/stock/publication';
 const vehicleTitle = car => [car.brand, car.name || car.model, car.year].filter(Boolean).join(' ') || 'Vehículo';
@@ -23,6 +24,7 @@ export default function StockPublicationPanel() {
     const { user, token } = useAuth();
     const [search, setSearch] = useState(''), [query, setQuery] = useState(''), [page, setPage] = useState(1);
     const [selectedId, setSelectedId] = useState(null), [revision, setRevision] = useState(0);
+    const [ordering, setOrdering] = useState(false);
     const [snapshot, setSnapshot] = useState(null), [detail, setDetail] = useState(null);
     const [error, setError] = useState(''), [detailError, setDetailError] = useState('');
     const canImages = canManageStockMedia(user), canPublish = canPublishStock(user);
@@ -53,6 +55,7 @@ export default function StockPublicationPanel() {
         window.dispatchEvent(new CustomEvent('crm:stock-changed', { detail: { vehicleId: selectedId } }));
     };
     if (!canImages && !canPublish) return null;
+    if (ordering && canPublish) return <CatalogOrderPanel key={token} onClose={() => setOrdering(false)} onSaved={refresh}/>;
     if (selectedId) return <section className="flex min-w-0 flex-col gap-5" aria-label="Fotos y catálogo del vehículo" data-stock-publication-detail>
         <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-white">{vehicle ? vehicleTitle(vehicle) : 'Fotos y catálogo'}</h2>
@@ -66,7 +69,7 @@ export default function StockPublicationPanel() {
             </div>}
     </section>;
     return <section className="flex min-w-0 flex-col gap-5" aria-label="Fotos y catálogo" data-stock-publication>
-        <div><h2 className="flex items-center gap-2 text-lg font-semibold text-white"><Camera size={20}/> Fotos y catálogo</h2><p className="mt-1 text-sm text-crm-fg-muted">Agregá fotos, elegí la portada y administrá la publicación de cada unidad.</p></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-semibold text-white"><Camera size={20}/> Fotos y catálogo</h2><p className="mt-1 text-sm text-crm-fg-muted">Agregá fotos, elegí la portada y administrá la publicación de cada unidad.</p></div>{canPublish && <CrmButton type="button" variant="secondary" onClick={() => setOrdering(true)}><ListOrdered size={16}/> Ordenar catálogo</CrmButton>}</div>
         <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); setPage(1); setQuery(search.trim()); }}>
             <label className="flex min-w-0 flex-1 flex-col gap-2 text-sm text-crm-fg-muted">Buscar vehículo<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Marca, modelo o dominio" className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-white"/></label>
             <CrmButton type="submit" variant="secondary"><Search size={16}/> Buscar</CrmButton>
