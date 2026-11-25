@@ -1,8 +1,11 @@
 import crypto from 'crypto';
+import { Buffer } from 'node:buffer';
 import mongoose from 'mongoose';
 import AcademyBudget from '../models/AcademyBudget.js';
 
 const PRIMARY_BUDGET_ID = 'academy-primary';
+const INPUT_TOKEN_COST_USD = 0.00000015;
+const OUTPUT_TOKEN_COST_USD = 0.00000060;
 
 /**
  * POLÍTICA DE RESOLUCIÓN DE CONFLICTOS DE PRESUPUESTO (SECCIÓN 7):
@@ -91,6 +94,25 @@ const ESTIMATED_CALL_COSTS = {
     evaluator: 0.0020
 };
 
+/**
+ * Reserve for the complete buyer prompt before calling the provider. UTF-8
+ * bytes bound the token count conservatively; framing has its own allowance.
+ * Rates are shared with settlement and the existing buyer minimum is retained.
+ */
+export function estimateBuyerCallCost(messages, maxTokens = 250) {
+    if (!Array.isArray(messages) || !Number.isSafeInteger(maxTokens) || maxTokens < 0) {
+        throw new TypeError('El contexto o el límite de respuesta no es válido.');
+    }
+    const inputTokenBound = messages.reduce((total, message) => {
+        if (!message || typeof message.content !== 'string') {
+            throw new TypeError('El contenido del contexto debe ser texto.');
+        }
+        return total + Buffer.byteLength(message.content, 'utf8') + 16;
+    }, 32);
+    const estimate = inputTokenBound * INPUT_TOKEN_COST_USD + maxTokens * OUTPUT_TOKEN_COST_USD;
+    return Math.max(ESTIMATED_CALL_COSTS.buyer, Math.ceil(estimate * 1000000) / 1000000);
+}
+
 // Límites configurables por usuario
 export const USER_QUOTA_LIMITS = {
     MAX_SESSIONS_PER_DAY: 10,
@@ -178,7 +200,7 @@ export async function getBudgetStatus(userId = null) {
  * Reserva atómicamente el costo máximo estimado antes de despachar una llamada a OpenAI.
  * Si no hay saldo, o la IA está deshabilitada, o el usuario superó su cuota, retorna simulated: true.
  */
-export async function reserveAICall({ userId = 'anon', callType = 'buyer' }) {
+export async function reserveAICall({ userId = 'anon', callType = 'buyer', estimatedCostUSD }) {
     const key = process.env.ACADEMY_OPENAI_API_KEY?.trim();
     const enabled = process.env.ACADEMY_AI_ENABLED === 'true';
 
@@ -190,7 +212,12 @@ export async function reserveAICall({ userId = 'anon', callType = 'buyer' }) {
         return { allowed: false, simulated: true, reason: 'disabled_by_config', message: 'ACADEMY_AI_ENABLED está desactivado.' };
     }
 
-    const estimatedCost = ESTIMATED_CALL_COSTS[callType] || 0.001;
+    const minimumCost = ESTIMATED_CALL_COSTS[callType] || 0.001;
+    if (estimatedCostUSD !== undefined && (!Number.isFinite(estimatedCostUSD) || estimatedCostUSD <= 0
+        || !Number.isSafeInteger(Math.ceil(estimatedCostUSD * 1000000)))) {
+        throw new TypeError('La estimación de costo debe ser un número finito mayor a cero.');
+    }
+    const estimatedCost = Math.max(minimumCost, Math.ceil((estimatedCostUSD ?? minimumCost) * 1000000) / 1000000);
     const doc = await getBudgetDoc();
 
     // 2. Candado de presupuesto positivo
@@ -296,7 +323,7 @@ export async function settleAICall({
         // Consumo confirmado
         const finalCost = actualCostUSD > 0
             ? actualCostUSD
-            : Number(((tokensIn * 0.00000015) + (tokensOut * 0.00000060)).toFixed(6));
+            : Number(((tokensIn * INPUT_TOKEN_COST_USD) + (tokensOut * OUTPUT_TOKEN_COST_USD)).toFixed(6));
 
         doc.confirmedSpentUSD = Number(((doc.confirmedSpentUSD || 0) + finalCost).toFixed(6));
         doc.totalTokensUsed = (doc.totalTokensUsed || 0) + tokensIn + tokensOut;

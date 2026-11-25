@@ -14,10 +14,11 @@
  */
 
 import { NEGOTIATION_SCENARIOS, COMPETENCY_DEFINITIONS } from '../lib/academy/negotiationScenarios.js';
-import { MAX_NEGOTIATION_TURNS, getPreviousNegotiationHistory, simulateDiscountBuyerReply, buildNegotiationKeyMoments } from '../lib/academy/negotiationConversation.js';
+import { MAX_NEGOTIATION_TURNS, getPreviousNegotiationHistory, hasBuyerReply, simulateNegotiationBuyerReply, buildNegotiationKeyMoments } from '../lib/academy/negotiationConversation.js';
 import { TUTOR_PROCEDURES, getAvailableProceduresForRole } from '../lib/academy/roleTutorKnowledge.js';
 import {
     reserveAICall,
+    estimateBuyerCallCost,
     settleAICall,
     incrementUserQuota,
     getBudgetStatus,
@@ -125,17 +126,19 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
         };
     }
 
-    // Intentar reserva atómica en presupuesto persistente
+    const buyerMessages = buildBuyerMessages(scenario, previousHistory, sellerMessage, level);
+
+    // Reservar el contexto completo antes de despachar la llamada.
     let reservation = null;
     try {
-        reservation = await reserveAICall({ userId, callType: 'buyer' });
+        reservation = await reserveAICall({ userId, callType: 'buyer', estimatedCostUSD: estimateBuyerCallCost(buyerMessages, MAX_BUYER_TOKENS) });
     } catch {
         reservation = { allowed: false, simulated: true, reason: 'budget_service_offline' };
     }
 
     if (reservation?.allowed) {
         try {
-            const { reply, tokensIn, tokensOut } = await callOpenAIBuyer(scenario, previousHistory, sellerMessage, level);
+            const { reply, tokensIn, tokensOut } = await callOpenAIBuyer(buyerMessages);
             await settleAICall({
                 reservationId: reservation.reservationId,
                 tokensIn,
@@ -144,12 +147,17 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
                 userId,
                 callType: 'buyer'
             });
-            return {
-                text: reply,
-                isRealAiConnected: true,
-                provider: 'openai',
-                turnsCount: sellerTurns
-            };
+            if (!hasBuyerReply(previousHistory, reply)) {
+                return {
+                    text: reply,
+                    isRealAiConnected: true,
+                    provider: 'openai',
+                    turnsCount: sellerTurns
+                };
+            }
+            // The request consumed tokens, but a repeated buyer line must not
+            // restart the conversation. Continue with the scenario's next step.
+            reservation = { ...reservation, reason: 'repeated_buyer_reply', message: null };
         } catch (err) {
             console.warn('[AcademyAI] Fallback a motor pedagógico simulado:', err.message);
             const isTimeout = err.name === 'AbortError' || err.message?.toLowerCase().includes('timeout');
@@ -164,7 +172,7 @@ export async function generateBuyerReply({ scenarioId, conversationHistory = [],
     }
 
     // Adaptador pedagógico simulado de alta fidelidad
-    const simulatedReply = simulateBuyerTurn(scenario, previousHistory, sellerMessage, sellerTurns, level);
+    const simulatedReply = simulateNegotiationBuyerReply(scenario, previousHistory, sellerMessage, sellerTurns, level);
     return {
         text: simulatedReply,
         isRealAiConnected: false,
@@ -302,97 +310,6 @@ export async function generateTutorReply({ userMessage = '', userRole = 'vendedo
 // -------------------------------------------------------------
 // IMPLEMENTACIÓN DEL ADAPTADOR SIMULADO (MOCK PEDAGÓGICO DE ALTA FIDELIDAD)
 // -------------------------------------------------------------
-
-function simulateBuyerTurn(scenario, history, currentMsg, turnNumber, level) {
-    const text = currentMsg.toLowerCase();
-    const client = scenario.clientProfile;
-
-    // Guillermo recuerda lo conversado y avanza sin repetir ofertas ya emitidas.
-    if (scenario.id === 'desc-01') return simulateDiscountBuyerReply(history, currentMsg);
-
-    // Caso 2: Toma de permuta (toma-02)
-    if (scenario.id === 'toma-02') {
-        if (text.includes('está rota') || text.includes('gastada') || text.includes('no vale nada') || text.includes('te quejás')) {
-            return `¡Pará un poco! No me tires abajo la camioneta. La cuidé como oro y le hice todos los cambios de aceite. Si me vas a despreciar mi auto me voy a otra agencia.`;
-        }
-        if (text.includes('diferencia') || text.includes('peritaje') || text.includes('reacondicionamiento') || text.includes('garantía') || text.includes('taller')) {
-            return `Está bien, entiendo que la agencia tenga que darle garantía al que la compre y que las cubiertas delanteras tengan desgaste. Pero $13 millones es poco. Si me la reconocen en $13.800.000 y vemos la diferencia neta para la Amarok, me siento a negociar.`;
-        }
-        return `En internet por una EcoSport Titanium como la mía piden 16 millones. ¿Cómo justifican que me la reciban en 13? Es mucha la diferencia.`;
-    }
-
-    // Caso 3: Indeciso (inde-03)
-    if (scenario.id === 'inde-03') {
-        if (text.includes('apurate') || text.includes('se lo lleva otro') || text.includes('hoy o nunca')) {
-            return `La verdad no me gusta que me apuren. Prefiero pensarlo tranquilo el fin de semana y cualquier cosa te aviso.`;
-        }
-        if (text.includes('qué te preocupa') || text.includes('cuál es la duda') || text.includes('mantenimiento') || text.includes('patentes') || text.includes('prueba de manejo')) {
-            return `Lo que más me frena es no saber cuánto me va a salir el mantenimiento mensual del motor turbo y el costo de patentes acá en Comodoro. Si me podés pasar esos números claros, lo hablo hoy mismo con mi señora.`;
-        }
-        if (text.includes('jueves') || text.includes('llamado') || text.includes('coordinamos') || text.includes('te escribo')) {
-            return `Dale, impecable. Escribime el jueves a las 11:00 hs con el cálculo de patentes y lo cerramos.`;
-        }
-        return `El Cruze está hermoso, de verdad, pero no quiero meter la pata con un gasto grande sin estar 100% seguro con los números.`;
-    }
-
-    // Caso 4: Compara agencias (comp-04)
-    if (scenario.id === 'comp-04') {
-        if (text.includes('son unos truchos') || text.includes('te van a estafar') || text.includes('la otra agencia es mala')) {
-            return `No hables de la competencia, ellos me atendieron de diez. Yo hablo de números: tienen una Renegade parecida a $22.5M y ustedes están en $24M.`;
-        }
-        if (text.includes('kilometraje') || text.includes('informe de dominio') || text.includes('cubiertas') || text.includes('garantía') || text.includes('80 puntos')) {
-            return `Bueno... tenés razón en que la de ellos tiene 85.000 kilómetros y esta tiene 42.000 con cubiertas nuevas. Es un punto importante. ¿Podemos revisar qué incluye la gestoría de ustedes para ver si me conviene?`;
-        }
-        return `En la agencia de zona norte me piden $22.500.000. Si ustedes me igualan el número cerramos acá, si no me voy para allá.`;
-    }
-
-    // Caso 5: Financiación (fina-05)
-    if (scenario.id === 'fina-05') {
-        if (text.includes('te lo apruebo yo') || text.includes('sale con dni seguro') || text.includes('no te preocupes por el veraz')) {
-            return `¡Buenísimo! ¿Entonces te dejo $500.000 ya y me garantizás que la semana que viene retiro la Kangoo sin más trámites?`;
-        }
-        if (text.includes('banco') || text.includes('análisis crediticio') || text.includes('ingresos') || text.includes('cónyuge') || text.includes('recibo de sueldo') || text.includes('scoring')) {
-            return `Ah, entiendo... claro, con mi monotributo bajo capaz el banco me rebota. Te cuento: mi marido trabaja en el petróleo con recibo de sueldo de 6 años de antigüedad y sin deudas. ¿Podemos presentarlo con él?`;
-        }
-        return `Tengo 7 millones en efectivo y quiero financiar los otros 16.5 millones. En otra agencia me dijeron que salía a sola firma con DNI sin presentar balances ni nada.`;
-    }
-
-    // Caso 6: Exigente / difícil (difi-06)
-    if (scenario.id === 'difi-06') {
-        if (text.includes('cálmese') || text.includes('no me falte el respeto') || text.includes('si no confía no compre')) {
-            return `¿Ves cómo son? Uno viene con plata en mano a preguntar cosas lógicas y se ofenden. En Comodoro las agencias se creen dueñas del mercado. Me voy a otra parte.`;
-        }
-        if (text.includes('informe de dominio') || text.includes('mecánico') || text.includes('escanear') || text.includes('revisar') || text.includes('documentación')) {
-            return `Mirá vos... me parece bien que no te achiques y que me ofrezcas traer al mecánico a enchufar el escáner. Eso demuestra que no esconden nada. Mostrame la carpeta con el informe de dominio y el F12.`;
-        }
-        return `Esta Hilux seguro la tuvieron en el yacimiento dándole masa en los cañadones. Todos dicen que es de una señora que la usaba para hacer las compras. A mí no me van a meter gato por liebre.`;
-    }
-
-    // Caso 7: Seña irregular (sena-07)
-    if (scenario.id === 'sena-07') {
-        if (text.includes('transferime a mi alias') || text.includes('transferime a mi cuenta') || text.includes('te la guardo de palabra')) {
-            return `¡Genial! Pasame tu alias de Mercado Pago por WhatsApp y te mando los 300 mil pesos ahora. Guardámela hasta el lunes que viene sin falta eh.`;
-        }
-        if (text.includes('cuenta oficial') || text.includes('procedimiento') || text.includes('recibo') || text.includes('5%') || text.includes('autorización')) {
-            return `Entiendo que sea por seguridad para que quede el recibo oficial de AutoSporting. ¿Podemos hacer una reserva provisoria de 24 horas con lo que tengo disponible mientras el banco me libera los fondos mañana temprano?`;
-        }
-        return `¡Me encantó el 208! Bloquéamelo en la web ya mismo. Te transfiero $300.000 a tu cuenta particular y el lunes te traigo todo el saldo restante.`;
-    }
-
-    // Caso 8: Integral (inte-08)
-    if (scenario.id === 'inte-08') {
-        if (text.includes('llevátela hoy') || text.includes('te la entrego antes') || text.includes('te tomo el gol en 10.5 sin drama')) {
-            return `Listo, me parece bárbaro. ¿Firmamos ya el boleto y me llevo la Ranger puesta esta tarde con las llaves?`;
-        }
-        if (text.includes('paso a paso') || text.includes('desglosar') || text.includes('registro') || text.includes('transferencia') || text.includes('entrega')) {
-            return `Me gusta tu prolijidad. Desglosemos: defendeme por qué el Gol entra en 9 millones y explicame bien cómo es el circuito del crédito prendario y los tiempos de gestoría para la entrega. Si los números me cierran, avanzamos formalmente.`;
-        }
-        return `Hagamos un paquete global: me tomás el Gol en 10 y medio, te doy 20 millones contados, el resto en cuotas blandas y me llevo la chata esta misma tarde. Tomalo o dejalo.`;
-    }
-
-    // Genérico patagónico
-    return `Entiendo lo que me decís, pero quiero una propuesta concreta y transparente. ¿Cómo seguimos para que nos sirva a ambos?`;
-}
 
 function simulateIndependentEvaluation(scenario, history) {
     const sellerMessages = history.filter(m => m.sender === 'seller');
@@ -673,8 +590,7 @@ function simulateTutorKnowledgeResponse(userMessage, userRole) {
 // LLAMADAS EXTERNAS A OPENAI (SI EXISTE CONFIGURACIÓN EXPRESA)
 // -------------------------------------------------------------
 
-async function callOpenAIBuyer(scenario, history, currentMsg, level) {
-    const apiKey = getApiKey();
+function buildBuyerMessages(scenario, history, currentMsg, level) {
     const systemPrompt = `Sos un cliente ficticio llamado ${scenario.clientProfile.name} negociando en AutoSporting, una agencia de autos de Comodoro Rivadavia, Chubut, Argentina.
 Vehículo: ${scenario.vehicleOfInterest.brand} ${scenario.vehicleOfInterest.model} (${scenario.vehicleOfInterest.year}), valor publicado: $${scenario.vehicleOfInterest.listPrice.toLocaleString('es-AR')}.
 Tu perfil: ${scenario.clientProfile.temperament}.
@@ -688,15 +604,18 @@ Reglas estrictas de comportamiento:
 4. Mantené el contexto de lo que el vendedor te viene diciendo.
 5. No repitas respuestas anteriores ni vuelvas a pedir información que el vendedor ya aclaró; avanzá hacia una propuesta o un próximo paso concreto.`;
 
-    const messages = [
+    return [
         { role: 'system', content: systemPrompt },
-        ...history.slice(-8).map(m => ({
+        ...history.slice(-(MAX_NEGOTIATION_TURNS * 2)).map(m => ({
             role: m.sender === 'seller' ? 'user' : 'assistant',
             content: m.text
         })),
         { role: 'user', content: currentMsg }
     ];
+}
 
+async function callOpenAIBuyer(messages) {
+    const apiKey = getApiKey();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 

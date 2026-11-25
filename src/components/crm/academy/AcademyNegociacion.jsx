@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NEGOTIATION_SCENARIOS, COMPETENCY_DEFINITIONS } from '../../../lib/academy/negotiationScenarios';
+import { MAX_NEGOTIATION_TURNS } from '../../../lib/academy/negotiationConversation';
 
 export default function AcademyNegociacion() {
     const router = useRouter();
@@ -75,7 +76,7 @@ export default function AcademyNegociacion() {
 
     const handleSendMessage = async (e) => {
         e?.preventDefault();
-        if (!inputMessage.trim() || isSending || isEvaluating || evaluationReport) return;
+        if (!inputMessage.trim() || isSending || isEvaluating || evaluationReport || reachedTurnLimit) return;
 
         const negotiationVersion = negotiationVersionRef.current;
         const userText = inputMessage.trim();
@@ -200,6 +201,7 @@ export default function AcademyNegociacion() {
         : NEGOTIATION_SCENARIOS.filter(s => s.level === filterLevel);
 
     const sellerTurnsCount = messages.filter(m => m.sender === 'seller').length;
+    const reachedTurnLimit = sellerTurnsCount >= MAX_NEGOTIATION_TURNS;
 
     return (
         <div className="space-y-6">
@@ -542,7 +544,7 @@ export default function AcademyNegociacion() {
 
                                 <div className="flex items-center gap-3 text-xs text-zinc-400">
                                     <span className="bg-zinc-800 px-2 py-0.5 rounded text-[11px]">
-                                        Turnos: <strong className="text-zinc-200">{sellerTurnsCount}</strong>/15
+                                        Turnos: <strong className="text-zinc-200">{sellerTurnsCount}</strong>/{MAX_NEGOTIATION_TURNS}
                                     </span>
                                 </div>
                             </div>
@@ -586,6 +588,9 @@ export default function AcademyNegociacion() {
                             </div>
 
                             {/* Barra de entrada de texto libre */}
+                            {reachedTurnLimit && !isSending && (
+                                <p role="status" className="px-3 pt-3 text-xs text-zinc-300">Completaste los {MAX_NEGOTIATION_TURNS} turnos. Evaluá la práctica o reiniciala para volver a conversar.</p>
+                            )}
                             {sendError && (
                                 <p role="alert" className="px-3 pt-3 text-xs text-rose-300">{sendError}</p>
                             )}
@@ -598,13 +603,13 @@ export default function AcademyNegociacion() {
                                     maxLength={500}
                                     value={inputMessage}
                                     onChange={(e) => setInputMessage(e.target.value)}
-                                    placeholder="Escribí tu respuesta comercial o propuesta aquí..."
-                                    disabled={isSending || isEvaluating}
+                                    placeholder={reachedTurnLimit ? 'Evaluá la práctica o reiniciala para continuar.' : 'Escribí tu respuesta comercial o propuesta aquí...'}
+                                    disabled={isSending || isEvaluating || reachedTurnLimit}
                                     className="flex-1 bg-zinc-950 border border-zinc-800 focus:border-indigo-500 rounded-lg px-3.5 py-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none transition-colors"
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!inputMessage.trim() || isSending || isEvaluating}
+                                    disabled={!inputMessage.trim() || isSending || isEvaluating || reachedTurnLimit}
                                     className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 rounded-lg transition-colors shadow-sm"
                                 >
                                     Enviar
