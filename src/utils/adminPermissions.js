@@ -334,7 +334,7 @@ export const ROLE_DEFINITIONS = {
     [ROLES.SOLO_LECTURA]: {
         label: 'Solo lectura',
         description: 'Consulta de los módulos habilitados, sin acciones de edición por defecto.',
-        limits: ['No puede cargar, editar ni autorizar información por defecto.']
+        limits: ['No puede cargar, editar ni autorizar información operativa por defecto. Puede reportar problemas del CRM.']
     }
 };
 
@@ -354,6 +354,7 @@ export const roleAccessSummary = user => {
     add(permission(PERMISSIONS.CLIENTES_READ), 'Clientes', user.role === ROLES.VENTAS
         ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
     add(true, 'Equipamiento', 'Control y carga de equipamiento de vehículos en stock');
+    add(true, 'Reportar problema', permission(PERMISSIONS.SUGGESTIONS_MANAGE) ? 'Reporta problemas y gestiona los reportes del equipo' : 'Carga fallas y consulta el estado de sus propios reportes');
     add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : canCompleteStockPlate(user) ? 'Consulta, simulación y carga del dominio cuando falta' : 'Consulta y simulación de ofertas');
     add(canManageStockMedia(user) || canPublishStock(user), 'Fotos y catálogo', 'Fotos, encuadre y visibilidad en el catálogo; sin modificar el estado operativo ni los costos');
     add(permission(PERMISSIONS.STOCK_READ), 'Inventario de Stock', writeDetail(PERMISSIONS.STOCK_WRITE));

@@ -1,8 +1,8 @@
 "use client";
-import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart, Star } from 'lucide-react';
+import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart, Star, Bug } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { canAccessCrmPath, hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
@@ -32,6 +32,7 @@ export default function CrmHeader({ onMenuClick }) {
 
     const dropdownRef = useRef(null);
     const router = useRouter();
+    const pathname = usePathname();
 
     // Buscar datos
     useEffect(() => {
@@ -330,6 +331,16 @@ export default function CrmHeader({ onMenuClick }) {
 
                 <div className="relative flex shrink-0 items-center gap-1 md:gap-2" ref={dropdownRef}>
                     {!isSales && <OfflineSyncControl />}
+
+                    <Link
+                        href={`/admin/reportar-problema?from=${encodeURIComponent(pathname)}`}
+                        prefetch={false}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:h-9 md:w-9"
+                        aria-label="Reportar problema"
+                        title="Reportar problema"
+                    >
+                        <Bug size={20} />
+                    </Link>
 
                     <button
                         type="button"

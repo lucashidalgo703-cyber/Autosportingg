@@ -115,6 +115,7 @@ import { createCapitalHistoryRouter, capitalHistoryCronHandler } from './src/rou
 import { createAcademyRouter } from './src/routes/academyRoutes.js';
 import { createProfitabilityRouter } from './src/routes/profitabilityRoutes.js';
 import { createStockRotationRouter } from './src/routes/stockRotationRoutes.js';
+import { createIssueReportRouter } from './src/routes/issueReportRoutes.js';
 import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
 import { isAvailableStock, stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
@@ -609,6 +610,7 @@ app.use('/api/admin/capital-history', createCapitalHistoryRouter({ authenticate:
 app.use('/api/admin/academy', createAcademyRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/profitability', createProfitabilityRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/stock/rotation', createStockRotationRouter({ authenticate: authenticateToken }));
+app.use('/api/admin/issue-reports', createIssueReportRouter({ authenticate: authenticateToken }));
 app.get('/api/internal/jobs/capital-history', capitalHistoryCronHandler);
 app.post('/api/internal/jobs/capital-history', capitalHistoryCronHandler);
 app.use('/api/buyer-portal', createBuyerPortalRouter());

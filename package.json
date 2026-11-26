@@ -54,7 +54,9 @@
     "test:capital:history:browser": "node tests/browser/capitalHistory.browser.mjs",
     "test:stock:loading:browser": "node tests/browser/stockLoading.browser.mjs",
     "test:database:startup": "node tests/integration/databaseStartup.integration.test.js",
-    "test:academy": "node --test tests/academy*.test.js"
+    "test:academy": "node --test tests/academy*.test.js",
+    "test:issue-reports": "node tests/integration/issueReports.integration.test.js",
+    "test:issue-reports:browser": "node tests/browser/issueReports.browser.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

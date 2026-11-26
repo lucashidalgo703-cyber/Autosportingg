@@ -17,6 +17,7 @@ const menuGroups = [
             { name: 'Reportes', path: '/admin/reportes', icon: '📈' },
             { name: 'Mi Espacio', path: '/admin/mi-espacio', icon: '📂' },
             { name: 'Academy', path: '/admin/academy', icon: '🎓', prefetch: false },
+            { name: 'Reportar problema', path: '/admin/reportar-problema', icon: '🐞', prefetch: false },
         ]
     },
     {
