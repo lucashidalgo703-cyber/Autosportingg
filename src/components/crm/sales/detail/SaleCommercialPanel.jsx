@@ -247,7 +247,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
     });
 
     const handleSaveClick = async () => {
-        if (!onSave) return;
+        if (!onSave || isSaving) return;
         const isFinanced = editForm.paymentMethod?.toLowerCase() === 'financiado';
 
         if (editForm.commissionSettings.mode === 'percent') {
@@ -1067,11 +1067,13 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Gastos de Venta</span>
                         {isEditing && (
                             <button
+                                type="button"
+                                disabled={isSaving}
                                 onClick={() => setEditForm({
                                     ...editForm,
                                     saleExpenses: [...editForm.saleExpenses, { description: '', amount: 0, currency: editForm.saleCurrency, status: 'Pendiente' }]
                                 })}
-                                className="flex items-center gap-1 text-[10px] font-bold text-crm-fg-muted hover:text-white"
+                                className="flex items-center gap-1 text-[10px] font-bold text-crm-fg-muted hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Plus size={12} /> Agregar Gasto
                             </button>
@@ -1182,6 +1184,21 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                             {editForm.saleExpenses.length === 0 && (
                                 <span className="text-xs text-crm-fg-muted text-center py-2">Sin gastos añadidos</span>
                             )}
+                        </div>
+                    )}
+                    {isEditing && (
+                        <div className="mt-3 space-y-2 border-t border-crm-border pt-3">
+                            <p className="m-0 text-xs leading-5 text-crm-fg-muted">Guarda los gastos y los demás cambios de las condiciones comerciales.</p>
+                            <button
+                                type="button"
+                                onClick={handleSaveClick}
+                                disabled={isSaving}
+                                aria-busy={isSaving}
+                                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-crm-red px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-crm-red-hover disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {!isSaving && <Check size={16} />}
+                                {isSaving ? 'Guardando gastos...' : 'Guardar gastos'}
+                            </button>
                         </div>
                     )}
                 </div>
