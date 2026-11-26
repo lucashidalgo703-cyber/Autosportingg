@@ -1104,6 +1104,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 <div key={i} className="flex flex-col gap-2 rounded-lg border border-crm-border bg-crm-surface p-2">
                                     <div className="flex items-center gap-2">
                                         <CrmInput 
+                                            aria-label={`Descripción del gasto ${i + 1}`}
                                             value={exp.description}
                                             onChange={(e) => {
                                                 const newExpenses = [...editForm.saleExpenses];
@@ -1114,6 +1115,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                             className="h-8 min-w-0 flex-1 bg-crm-bg px-2 text-xs font-bold"
                                         />
                                         <button 
+                                            aria-label={`Quitar gasto ${i + 1}`}
                                             onClick={() => {
                                                 const newExpenses = editForm.saleExpenses.filter((_, idx) => idx !== i);
                                                 setEditForm({...editForm, saleExpenses: newExpenses});
@@ -1123,43 +1125,57 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <CrmSelect
-                                            value={exp.currency}
-                                            onChange={(e) => {
-                                                const newExpenses = [...editForm.saleExpenses];
-                                                newExpenses[i].currency = e.target.value;
-                                                setEditForm({...editForm, saleExpenses: newExpenses});
-                                            }}
-                                            className="h-8 w-16 bg-crm-bg px-1 text-xs font-bold"
-                                        >
-                                            <option value="ARS">ARS</option>
-                                            <option value="USD">USD</option>
-                                        </CrmSelect>
-                                        <CrmInput 
-                                            type="number" 
-                                            min="0" 
-                                            value={exp.amount} 
-                                            onChange={(e) => {
-                                                const newExpenses = [...editForm.saleExpenses];
-                                                newExpenses[i].amount = e.target.value;
-                                                setEditForm({...editForm, saleExpenses: newExpenses});
-                                            }} 
-                                            className="h-8 min-w-0 flex-1 bg-crm-bg px-2 text-xs font-bold text-right"
-                                        />
-                                        <CrmSelect
-                                            value={exp.status}
-                                            onChange={(e) => {
-                                                const newExpenses = [...editForm.saleExpenses];
-                                                newExpenses[i].status = e.target.value;
-                                                setEditForm({...editForm, saleExpenses: newExpenses});
-                                            }}
-                                            className="h-8 w-24 bg-crm-bg px-1 text-[10px] font-bold"
-                                        >
-                                            <option value="Pendiente">Pendiente</option>
-                                            <option value="En Proceso">En Proceso</option>
-                                            <option value="Pagado">Pagado</option>
-                                        </CrmSelect>
+                                    <div className="grid min-w-0 grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
+                                        <label className="col-span-2 block min-w-0 space-y-1">
+                                            <span className="block text-xs font-medium text-crm-fg-muted">Importe</span>
+                                            <CrmInput
+                                                aria-label={`Importe del gasto ${i + 1}`}
+                                                type="number"
+                                                inputMode="decimal"
+                                                step="any"
+                                                min="0"
+                                                value={exp.amount}
+                                                onChange={(e) => {
+                                                    const newExpenses = [...editForm.saleExpenses];
+                                                    newExpenses[i].amount = e.target.value;
+                                                    setEditForm({...editForm, saleExpenses: newExpenses});
+                                                }}
+                                                className="h-9 min-w-0 bg-crm-bg px-3 font-bold text-right"
+                                            />
+                                        </label>
+                                        <label className="block min-w-0 space-y-1">
+                                            <span className="block text-xs font-medium text-crm-fg-muted">Moneda</span>
+                                            <CrmSelect
+                                                aria-label={`Moneda del gasto ${i + 1}`}
+                                                value={exp.currency}
+                                                onChange={(e) => {
+                                                    const newExpenses = [...editForm.saleExpenses];
+                                                    newExpenses[i].currency = e.target.value;
+                                                    setEditForm({...editForm, saleExpenses: newExpenses});
+                                                }}
+                                                className="h-9 min-w-0 bg-crm-bg px-2 font-bold"
+                                            >
+                                                <option value="ARS">ARS</option>
+                                                <option value="USD">USD</option>
+                                            </CrmSelect>
+                                        </label>
+                                        <label className="block min-w-0 space-y-1">
+                                            <span className="block text-xs font-medium text-crm-fg-muted">Estado</span>
+                                            <CrmSelect
+                                                aria-label={`Estado del gasto ${i + 1}`}
+                                                value={exp.status}
+                                                onChange={(e) => {
+                                                    const newExpenses = [...editForm.saleExpenses];
+                                                    newExpenses[i].status = e.target.value;
+                                                    setEditForm({...editForm, saleExpenses: newExpenses});
+                                                }}
+                                                className="h-9 min-w-0 bg-crm-bg px-2 font-bold"
+                                            >
+                                                <option value="Pendiente">Pendiente</option>
+                                                <option value="En Proceso">En Proceso</option>
+                                                <option value="Pagado">Pagado</option>
+                                            </CrmSelect>
+                                        </label>
                                     </div>
                                 </div>
                             ))}
