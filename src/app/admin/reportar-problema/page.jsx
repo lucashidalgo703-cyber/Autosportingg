@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, Bug, CheckCircle2, Loader2, Paperclip, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, Bug, CheckCircle2, Loader2, Mail, Paperclip, Plus, RefreshCw, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import CrmButton from '../../../components/crm/ui/CrmButton';
@@ -13,6 +14,7 @@ import CrmSelect from '../../../components/crm/ui/CrmSelect';
 import CrmTextarea from '../../../components/crm/ui/CrmTextarea';
 import EmptyState from '../../../components/crm/ui/EmptyState';
 import ErrorState from '../../../components/crm/ui/ErrorState';
+import { issueReportTarget } from '../../../utils/issueReportLink';
 
 const API = '/api/admin/issue-reports';
 const PAGE_SIZE = 20;
@@ -26,6 +28,18 @@ const STATUS_STYLES = {
 const EMPTY_FORM = { title: '', description: '', category: 'bug', priority: 'medium', module: '', steps: '', expectedBehavior: '', actualBehavior: '', pageUrl: '' };
 const formatDate = (value) => value ? new Date(value).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
 const authorName = (author) => author?.name || author?.email || 'Usuario del CRM';
+const EMAIL_STATUS_LABELS = {
+    pending: 'Aviso por email pendiente', sending: 'Envío del aviso por email en curso', sent: 'Aviso por email enviado',
+    failed: 'No se pudo enviar el aviso por email', uncertain: 'No se pudo confirmar el envío del email',
+    not_configured: 'Aviso por email sin configurar', not_needed: 'Reporte anterior a los avisos por email'
+};
+const EMAIL_REASON_LABELS = {
+    admin_recipient_missing: 'Falta configurar un destinatario válido.', mail_unconfigured: 'El servicio de correo no está configurado.',
+    admin_recipient_changed: 'Cambió la configuración del destinatario. Revisá la configuración antes de continuar.',
+    preparation_failed: 'No se pudo preparar el aviso.', delivery_failed: 'El aviso no pudo enviarse.',
+    delivery_uncertain: 'El servicio no confirmó el envío. Se evita un reintento que podría duplicarlo.',
+    confirmation_pending: 'La confirmación del envío sigue pendiente.'
+};
 
 async function readResponse(response) {
     const body = await response.json().catch(() => ({}));
@@ -67,8 +81,12 @@ function AttachmentPreview({ attachment, token }) {
     </div>;
 }
 
-export default function ReportarProblemaPage() {
-    const { token } = useAuth();
+function ReportarProblemaContent() {
+    const { token, user } = useAuth();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const reportId = searchParams.get('reportId') || '';
+    const query = searchParams.toString();
     const [reports, setReports] = useState([]);
     const [total, setTotal] = useState(0);
     const [canManage, setCanManage] = useState(false);
@@ -91,8 +109,11 @@ export default function ReportarProblemaPage() {
     const [statusUpdate, setStatusUpdate] = useState('new');
     const [commentText, setCommentText] = useState('');
     const [saving, setSaving] = useState(false);
+    const [emailRetrying, setEmailRetrying] = useState(false);
+    const [deepLinkError, setDeepLinkError] = useState('');
     const fileInputRef = useRef(null);
     const detailRequestRef = useRef(0);
+    const handledDeepLinkRef = useRef('');
 
     useEffect(() => {
         const timer = setTimeout(() => { setSearchQuery(search.trim()); setPage(1); }, 300);
@@ -130,7 +151,11 @@ export default function ReportarProblemaPage() {
         }
         setSubmitError(''); setCreateOpen(true);
     };
-    const closeDetail = useCallback(() => { if (!saving) { detailRequestRef.current += 1; setSelected(null); } }, [saving]);
+    const closeDetail = useCallback(() => {
+        if (saving || emailRetrying) return;
+        detailRequestRef.current += 1; setSelected(null); setDetailLoading(false);
+        if (reportId) router.replace('/admin/reportar-problema', { scroll: false });
+    }, [saving, emailRetrying, reportId, router]);
 
     const handleFiles = (event) => {
         const incoming = Array.from(event.target.files || []);
@@ -168,20 +193,43 @@ export default function ReportarProblemaPage() {
         finally { setSubmitting(false); }
     };
 
-    const openDetail = async (report) => {
+    const openDetail = useCallback(async (report, { fromLink = false } = {}) => {
         const requestId = ++detailRequestRef.current;
-        setSelected(report); setStatusUpdate(report.status); setCommentText(''); setDetailError(''); setDetailLoading(true);
+        setSelected(report.title ? report : null); setStatusUpdate(report.status || 'new'); setCommentText('');
+        setDetailError(''); setDeepLinkError(''); setDetailLoading(true);
         try {
             const current = await fetch(`${API}/${report._id}`, { headers: { Authorization: `Bearer ${token}` } }).then(readResponse);
             if (requestId !== detailRequestRef.current) return;
             setSelected(current); setStatusUpdate(current.status);
-        } catch (err) { if (requestId === detailRequestRef.current) setDetailError(err.message); }
+        } catch (err) {
+            if (requestId === detailRequestRef.current) {
+                setDetailError(err.message);
+                if (fromLink) setDeepLinkError(err.message);
+            }
+        }
         finally { if (requestId === detailRequestRef.current) setDetailLoading(false); }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        if (!token || !reportId) { handledDeepLinkRef.current = ''; setDeepLinkError(''); return; }
+        const key = token + ':' + query;
+        if (handledDeepLinkRef.current === key) return;
+        handledDeepLinkRef.current = key;
+        if (!issueReportTarget('/admin/reportar-problema?' + query)) {
+            setDeepLinkError('El enlace del reporte no es válido.'); return;
+        }
+        void openDetail({ _id: reportId }, { fromLink: true });
+        return () => {
+            if (handledDeepLinkRef.current === key) handledDeepLinkRef.current = '';
+            detailRequestRef.current += 1;
+        };
+    }, [token, reportId, query, openDetail]);
+
+    useEffect(() => () => { detailRequestRef.current += 1; }, [token]);
 
     const handleUpdate = async (event) => {
         event.preventDefault();
-        if (!selected || saving || detailLoading || detailError) return;
+        if (!selected || saving || emailRetrying || detailLoading || detailError) return;
         setSaving(true); setDetailError('');
         try {
             const updated = await fetch(`${API}/${selected._id}`, {
@@ -194,9 +242,26 @@ export default function ReportarProblemaPage() {
         finally { setSaving(false); }
     };
 
+    const handleEmailRetry = async () => {
+        if (!selected || emailRetrying || user?.role !== 'owner' || !selected.emailNotification?.retryable) return;
+        const selectedId = selected._id;
+        setEmailRetrying(true);
+        try {
+            const updated = await fetch(`${API}/${selectedId}/email/retry`, {
+                method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: '{}'
+            }).then(readResponse);
+            setSelected((current) => current?._id === selectedId ? updated : current);
+            if (updated.emailNotification?.status === 'sent') toast.success('Aviso por email enviado');
+            else toast('Estado del aviso por email actualizado');
+        } catch (err) { toast.error(err.message); }
+        finally { setEmailRetrying(false); }
+    };
+
     const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
     return <div className="min-w-0 space-y-5 p-4 pb-24 md:p-6">
         <CrmPageHeader title="Reportar problema" subtitle="Avisá sobre fallas, bugs o problemas que encuentres en el CRM." actions={<CrmButton type="button" onClick={openCreate}><Plus size={17} /> Nuevo reporte</CrmButton>} />
+        {detailLoading && !selected && <p role="status" className="flex items-center gap-2 rounded-lg border border-crm-border bg-crm-surface p-4 text-sm text-crm-fg-muted"><Loader2 size={18} className="animate-spin" />Abriendo reporte…</p>}
+        {deepLinkError && <ErrorState title="No se pudo abrir el reporte" message={deepLinkError} onRetry={issueReportTarget('/admin/reportar-problema?' + query) ? () => openDetail({ _id: reportId }, { fromLink: true }) : null} />}
         {success && <div role="status" className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-crm-fg"><CheckCircle2 size={20} className="shrink-0 text-emerald-500" /><span className="flex-1">{success}</span><button type="button" onClick={() => setSuccess('')} aria-label="Cerrar confirmación" className="text-crm-fg-muted"><X size={18} /></button></div>}
         <CrmCard>
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -252,9 +317,19 @@ export default function ReportarProblemaPage() {
                 {detailError && <div role="alert" className="rounded-lg bg-crm-red/10 p-3 text-sm text-crm-red">{detailError}<button type="button" onClick={() => openDetail(selected)} className="ml-2 underline">Reintentar</button></div>}
                 {[['Pasos para reproducirlo', selected.steps], ['Resultado esperado', selected.expectedBehavior], ['Resultado observado', selected.actualBehavior], ['Pantalla del problema', selected.pageUrl]].filter(([, value]) => value).map(([label, value]) => <div key={label}><h4 className="mb-1 text-sm font-semibold text-crm-fg">{label}</h4><p className="m-0 whitespace-pre-wrap break-words text-sm leading-6 text-crm-fg-muted">{value}</p></div>)}
                 {selected.attachments?.length > 0 && <div><h4 className="mb-2 text-sm font-semibold text-crm-fg">Capturas adjuntas</h4><div className="grid gap-3 sm:grid-cols-2">{selected.attachments.map((attachment) => <AttachmentPreview key={attachment._id} attachment={attachment} token={token} />)}</div></div>}
+                {canManage && selected.emailNotification && <section aria-label="Aviso por email" className="space-y-2 rounded-lg border border-crm-border bg-crm-bg p-3">
+                    <h4 className="m-0 flex items-center gap-2 text-sm font-semibold text-crm-fg"><Mail size={16} />{EMAIL_STATUS_LABELS[selected.emailNotification.status] || 'Estado del aviso por email pendiente de confirmación'}</h4>
+                    {EMAIL_REASON_LABELS[selected.emailNotification.reason] && <p className="m-0 text-sm leading-6 text-crm-fg-muted">{EMAIL_REASON_LABELS[selected.emailNotification.reason]}</p>}
+                    {selected.emailNotification.status === 'sent' && selected.emailNotification.sentAt && <p className="m-0 text-xs text-crm-fg-muted">Enviado el {formatDate(selected.emailNotification.sentAt)}</p>}
+                    {user?.role === 'owner' && selected.emailNotification.retryable === true && <CrmButton type="button" variant="secondary" disabled={emailRetrying || saving || detailLoading} onClick={handleEmailRetry}>{emailRetrying ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}{emailRetrying ? 'Reintentando email…' : 'Reintentar email'}</CrmButton>}
+                </section>}
                 <div className="space-y-3 border-t border-crm-border pt-4"><h4 className="m-0 text-sm font-semibold text-crm-fg">Respuestas y seguimiento</h4>{selected.comments?.length ? selected.comments.map((comment, index) => <div key={comment._id || index} className="rounded-lg border border-crm-border bg-crm-bg p-3"><div className="flex flex-wrap justify-between gap-2 text-xs text-crm-fg-muted"><span className="font-semibold">{authorName(comment.author)}</span><span>{formatDate(comment.createdAt)}</span></div><p className="mb-0 mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-crm-fg">{comment.text}</p></div>) : <p className="m-0 text-sm text-crm-fg-muted">Todavía no hay respuestas. El estado se actualizará cuando revisemos el problema.</p>}</div>
-                {canManage && <form onSubmit={handleUpdate} className="space-y-4 border-t border-crm-border pt-4"><Field id="issue-status-update" label="Estado del reporte"><CrmSelect id="issue-status-update" disabled={saving || detailLoading || Boolean(detailError)} value={statusUpdate} onChange={(event) => setStatusUpdate(event.target.value)}>{Object.entries(STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</CrmSelect></Field><Field id="issue-comment" label="Respuesta para el usuario"><CrmTextarea id="issue-comment" maxLength={2000} disabled={saving || detailLoading || Boolean(detailError)} value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Contá qué se revisó o pedí más información." /></Field><div className="flex justify-end"><CrmButton type="submit" disabled={saving || detailLoading || Boolean(detailError) || (statusUpdate === selected.status && !commentText.trim())}>{saving && <Loader2 size={16} className="animate-spin" />}{saving ? 'Guardando…' : 'Guardar actualización'}</CrmButton></div></form>}
+                {canManage && <form onSubmit={handleUpdate} className="space-y-4 border-t border-crm-border pt-4"><Field id="issue-status-update" label="Estado del reporte"><CrmSelect id="issue-status-update" disabled={saving || emailRetrying || detailLoading || Boolean(detailError)} value={statusUpdate} onChange={(event) => setStatusUpdate(event.target.value)}>{Object.entries(STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</CrmSelect></Field><Field id="issue-comment" label="Respuesta para el usuario"><CrmTextarea id="issue-comment" maxLength={2000} disabled={saving || emailRetrying || detailLoading || Boolean(detailError)} value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Contá qué se revisó o pedí más información." /></Field><div className="flex justify-end"><CrmButton type="submit" disabled={saving || emailRetrying || detailLoading || Boolean(detailError) || (statusUpdate === selected.status && !commentText.trim())}>{saving && <Loader2 size={16} className="animate-spin" />}{saving ? 'Guardando…' : 'Guardar actualización'}</CrmButton></div></form>}
             </div>}
         </CrmModal>
     </div>;
+}
+
+export default function ReportarProblemaPage() {
+    return <Suspense fallback={<div role="status" className="p-6 text-sm text-crm-fg-muted">Cargando reportes…</div>}><ReportarProblemaContent /></Suspense>;
 }

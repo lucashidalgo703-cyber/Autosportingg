@@ -116,6 +116,7 @@ import { createAcademyRouter } from './src/routes/academyRoutes.js';
 import { createProfitabilityRouter } from './src/routes/profitabilityRoutes.js';
 import { createStockRotationRouter } from './src/routes/stockRotationRoutes.js';
 import { createIssueReportRouter } from './src/routes/issueReportRoutes.js';
+import { getIssueReportNotifications } from './src/services/issueReportNotificationService.js';
 import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
 import { isAvailableStock, stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
@@ -9373,6 +9374,8 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
             }
         }
 
+        rawNotifs.push(...await getIssueReportNotifications(req.user));
+
         // Generar notificationKey para cada una
         const notifications = rawNotifs.map(n => {
             const keyBase = `${n.module}_${n.type}_${n.entityId}_${n.dueDate ? new Date(n.dueDate).getTime() : 'nodate'}`;
@@ -9389,7 +9392,11 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         const finalNotifs = notifications.map(n => ({
             ...n,
             read: readKeys.has(n.id)
-        })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 100);
+        })).sort((a, b) => {
+            const aNewReport = a.type === 'issue_report_created' && !a.read;
+            const bNewReport = b.type === 'issue_report_created' && !b.read;
+            return Number(bNewReport) - Number(aNewReport) || new Date(b.createdAt) - new Date(a.createdAt);
+        }).slice(0, 100);
 
         res.json(finalNotifs);
     } catch (error) {

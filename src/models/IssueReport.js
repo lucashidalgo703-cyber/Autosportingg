@@ -15,6 +15,15 @@ const commentSchema = new mongoose.Schema({
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true },
     createdAt: { type: Date, default: Date.now }
 });
+const emailNotificationSchema = new mongoose.Schema({
+    state: { type: String, enum: ['pending', 'sending', 'sent', 'failed', 'uncertain', 'not_configured'], required: true },
+    recipientHash: String,
+    reason: String,
+    attempts: { type: Number, default: 0, min: 0, max: 3 },
+    claimedAt: Date,
+    claimId: String,
+    sentAt: Date
+}, { _id: false });
 const issueReportSchema = new mongoose.Schema({
     title: { type: String, required: true, trim: true, maxlength: 160 },
     description: { type: String, required: true, trim: true, maxlength: 10000 },
@@ -28,7 +37,9 @@ const issueReportSchema = new mongoose.Schema({
     pageUrl: { type: String, maxlength: 500, default: '' },
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true },
     attachments: { type: [attachmentSchema], validate: entries => entries.length <= 3 && entries.reduce((total, file) => total + file.size, 0) <= 3 * 1024 * 1024 },
-    comments: { type: [commentSchema], validate: entries => entries.length <= 100 }
+    comments: { type: [commentSchema], validate: entries => entries.length <= 100 },
+    // No default: historical reports must never acquire a new email event on read.
+    emailNotification: { type: emailNotificationSchema, default: undefined }
 }, { timestamps: true });
 
 issueReportSchema.index({ author: 1, createdAt: -1 });

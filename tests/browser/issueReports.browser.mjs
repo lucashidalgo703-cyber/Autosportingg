@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { bootIsolatedReplica } from '../integration/isolatedReplicaHarness.js';
 
 const host = '127.0.0.1', port = Number(process.env.ISSUE_REPORTS_QA_PORT || 3205), base = `http://${host}:${port}`;
@@ -21,7 +22,15 @@ const test = async (name, callback) => { await callback(); console.log(`ok ${++p
 try {
     const { seedMobileCrm } = await import('../fixtures/mobileCrmFixtures.js');
     const fixture = await seedMobileCrm(env.models);
+    const { createLoginSession } = await import('../../src/services/authSessionService.js');
+    const { EmailAdapter } = await import('../../src/lib/emailAdapter.js');
+    // The harness replaces sendEmail with an in-memory mailbox; SMTP is never contacted.
+    EmailAdapter.isConfigured = () => true;
+    const ownerUser = await env.models.AdminUser.create({ name: 'Propietario ficticio QA', email: 'owner@example.test',
+        passwordHash: fixture.users[0].passwordHash, role: 'owner', active: true });
+    fixture.users.push(ownerUser); fixture.sessions.push(await createLoginSession(ownerUser));
     process.env.NODE_ENV = 'development'; process.env.NEXT_PUBLIC_API_URL = base;
+    process.env.NEXT_PUBLIC_BASE_URL = base;
     delete process.env.TURBOPACK; delete process.env.IS_TURBOPACK_TEST;
     const next = (await import('next')).default;
     nextApp = next({ dev: true, webpack: true, hostname: host, port, conf: { distDir: '.next-issue-reports-qa' } });
@@ -36,11 +45,11 @@ try {
     assert.equal((await fetch(base + '/admin/reportar-problema', { signal: AbortSignal.timeout(180000) })).status, 200);
     browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
         args: ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
-    async function surface(index, width) {
+    async function surface(index, width, authenticated = true) {
         const context = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 1000 }, reducedMotion: 'reduce' }); contexts.push(context);
         await context.route('**/*', route => new URL(route.request().url()).hostname === host ? route.continue() : route.abort());
-        await context.addInitScript(({ token, id }) => { localStorage.setItem('token', token); localStorage.setItem('autosporting_tour_seen_' + id, 'true'); },
-            { token: fixture.sessions[index].token, id: String(fixture.users[index]._id) });
+        await context.addInitScript(({ token, id }) => { if (token) localStorage.setItem('token', token); else localStorage.removeItem('token'); localStorage.setItem('autosporting_tour_seen_' + id, 'true'); },
+            { token: authenticated ? fixture.sessions[index].token : null, id: String(fixture.users[index]._id) });
         const page = await context.newPage(); page.setDefaultTimeout(45000);
         page.on('pageerror', error => browserErrors.push(error.message));
         return { context, page, index, token: fixture.sessions[index].token };
@@ -52,7 +61,7 @@ try {
         await current.page.goto(base + '/admin/reportar-problema' + suffix, { waitUntil: 'domcontentloaded', timeout: 180000 });
         assert.equal((await response).status(), 200);
         await current.page.getByRole('heading', { name: 'Reportar problema', exact: true }).waitFor();
-        await current.page.getByRole('heading', { name: current.index === 0 ? 'Reportes del equipo' : 'Mis reportes', exact: true }).waitFor();
+        await current.page.getByRole('heading', { name: [0, 4].includes(current.index) ? 'Reportes del equipo' : 'Mis reportes', exact: true }).waitFor();
     }
     const auth = async current => {
         assert.equal(await current.page.evaluate(() => localStorage.getItem('token')), current.token);
@@ -105,7 +114,7 @@ try {
         await auth(current);
         return report;
     }
-    const seller = await surface(1, 1440), reader = await surface(3, 390), admin = await surface(0, 1440);
+    const seller = await surface(1, 1440), reader = await surface(3, 390), admin = await surface(0, 1440), owner = await surface(4, 1440);
     let sellerReport, readerReport;
     const sellerTitle = 'No guarda foto de Stock · Vendedor QA', readerTitle = 'Formulario con falla · Lectura QA';
     await test('seller and read-only users see the universal sidebar and header entry on desktop and mobile', async () => {
@@ -189,11 +198,129 @@ try {
         await auth(reader);
         await capture(reader.page, 'lectura-celular-reintento-recuperado.png');
     });
+
+    let alertReport;
+    const alertTitle = 'Aviso por email y campana · Vendedor QA';
+    await test('a new report sends a local email and the owner opens its exact detail from a refreshed bell even outside list filters', async () => {
+        await goto(owner);
+        const notificationApi = '/api/admin/notifications';
+        const previous = await owner.page.request.get(base + notificationApi, { headers: { Authorization: 'Bearer ' + owner.token } });
+        assert.equal(previous.status(), 200);
+        const oldNotifications = await previous.json();
+        assert.equal((await owner.page.request.patch(base + notificationApi + '/read-all', {
+            headers: { Authorization: 'Bearer ' + owner.token }, data: { keys: oldNotifications.filter(item => !item.read).map(item => item.id) }
+        })).status(), 200);
+        await owner.page.getByLabel('Filtrar por estado', { exact: true }).selectOption('resolved');
+        await owner.page.getByRole('heading', { name: 'No hay reportes con estos filtros', exact: true }).waitFor();
+        const bell = owner.page.getByRole('button', { name: 'Notificaciones', exact: true });
+        const firstRefresh = owner.page.waitForResponse(isResponse('GET', notificationApi));
+        await bell.click(); assert.equal((await firstRefresh).status(), 200); await bell.click();
+        const mailBefore = env.mailbox.length;
+        await goto(seller, '?from=%2Fadmin%2Fstock');
+        alertReport = await submitReport(seller, alertTitle, 'aviso-campana');
+        assert.equal(env.mailbox.length, mailBefore + 1);
+        const mail = env.mailbox.at(-1);
+        assert.equal(mail.to, process.env.SECURITY_ALERT_EMAIL);
+        assert.ok(mail.html.includes(base + '/admin/reportar-problema?reportId=' + alertReport._id));
+        assert.doesNotMatch(mail.html, /Bearer |data:image|recipientHash/);
+        const refreshed = owner.page.waitForResponse(isResponse('GET', notificationApi));
+        await bell.click(); assert.equal((await refreshed).status(), 200);
+        const notification = owner.page.getByRole('link').filter({ hasText: alertTitle });
+        await notification.waitFor(); assert.equal(await bell.locator('span').innerText(), '1');
+        await capture(owner.page, 'owner-campana-nuevo-reporte.png');
+        const notificationList = await owner.page.request.get(base + notificationApi, { headers: { Authorization: 'Bearer ' + owner.token } });
+        const notice = (await notificationList.json()).find(item => item.entityId === alertReport._id && item.type === 'issue_report_created');
+        assert.ok(notice); assert.equal(notice.read, false);
+        const markedRead = owner.page.waitForResponse(isResponse('PATCH', notificationApi + '/' + encodeURIComponent(notice.id) + '/read'));
+        const opened = owner.page.waitForResponse(isResponse('GET', `${endpoint}/${alertReport._id}`));
+        await notification.click(); assert.equal((await opened).status(), 200); assert.equal((await markedRead).status(), 200);
+        await owner.page.waitForURL(base + '/admin/reportar-problema?reportId=' + alertReport._id);
+        const dialog = owner.page.getByRole('dialog', { name: `Reporte #${alertReport._id.slice(-6).toUpperCase()}`, exact: true });
+        await dialog.getByRole('heading', { name: alertTitle, exact: true }).waitFor();
+        await dialog.getByText('Aviso por email enviado', { exact: true }).waitFor();
+        assert.equal(await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).count(), 0);
+        assert.equal(await dialog.getByText(process.env.SECURITY_ALERT_EMAIL, { exact: true }).count(), 0);
+        const persisted = await owner.page.request.get(base + notificationApi, { headers: { Authorization: 'Bearer ' + owner.token } });
+        assert.equal((await persisted.json()).find(item => item.id === notice.id).read, true);
+        await capture(owner.page, 'owner-reporte-desde-campana.png');
+        await dialog.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+        await owner.page.waitForURL(base + '/admin/reportar-problema');
+        await auth(owner);
+    });
+    await test('the notification center offers the owner a CRM failures filter and keeps the report destination', async () => {
+        const loaded = owner.page.waitForResponse(isResponse('GET', '/api/admin/notifications'));
+        await owner.page.goto(base + '/admin/notificaciones', { waitUntil: 'domcontentloaded', timeout: 180000 });
+        assert.equal((await loaded).status(), 200);
+        await owner.page.getByRole('heading', { name: 'Centro de Notificaciones', exact: true }).waitFor();
+        await owner.page.getByLabel('Módulo de notificaciones', { exact: true }).selectOption('fallas');
+        await owner.page.getByRole('heading', { name: 'Nuevo reporte de problema', exact: true }).first().waitFor();
+        const notice = owner.page.locator('div.rounded-xl').filter({ has: owner.page.getByText(alertTitle, { exact: true }) }).filter({ has: owner.page.getByRole('link', { name: 'Ver Módulo', exact: true }) }).last();
+        const link = notice.getByRole('link', { name: 'Ver Módulo', exact: true });
+        assert.equal(await link.getAttribute('href'), '/admin/reportar-problema?reportId=' + alertReport._id);
+        await capture(owner.page, 'owner-centro-notificaciones-fallas.png');
+        const opened = owner.page.waitForResponse(isResponse('GET', `${endpoint}/${alertReport._id}`));
+        await link.click(); assert.equal((await opened).status(), 200);
+        await owner.page.getByRole('dialog').getByRole('heading', { name: alertTitle, exact: true }).waitFor();
+        await owner.page.getByRole('dialog').getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+    });
+    await test('email delivery states are honest and only the owner can retry a confirmed failure', async () => {
+        await env.models.IssueReport.updateOne({ _id: alertReport._id }, { $set: {
+            'emailNotification.state': 'uncertain', 'emailNotification.reason': 'delivery_uncertain', 'emailNotification.attempts': 1
+        } });
+        await goto(owner, '?reportId=' + alertReport._id);
+        let dialog = owner.page.getByRole('dialog');
+        await dialog.getByText('No se pudo confirmar el envío del email', { exact: true }).waitFor();
+        assert.equal(await dialog.getByText('Aviso por email enviado', { exact: true }).count(), 0);
+        assert.equal(await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).count(), 0);
+        await capture(owner.page, 'owner-email-no-confirmado.png');
+        await dialog.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+        await env.models.IssueReport.updateOne({ _id: alertReport._id }, { $set: {
+            'emailNotification.state': 'failed', 'emailNotification.reason': 'delivery_failed', 'emailNotification.attempts': 1,
+            'emailNotification.recipientHash': crypto.createHash('sha256').update(process.env.SECURITY_ALERT_EMAIL.toLowerCase()).digest('hex')
+        } });
+        await goto(admin, '?reportId=' + alertReport._id);
+        dialog = admin.page.getByRole('dialog');
+        await dialog.getByText('No se pudo enviar el aviso por email', { exact: true }).waitFor();
+        assert.equal(await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).count(), 0);
+        await dialog.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+        await goto(owner, '?reportId=' + alertReport._id);
+        dialog = owner.page.getByRole('dialog');
+        await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).waitFor();
+        const before = env.mailbox.length, retried = owner.page.waitForResponse(isResponse('POST', `${endpoint}/${alertReport._id}/email/retry`));
+        await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).click(); assert.equal((await retried).status(), 200);
+        await dialog.getByText('Aviso por email enviado', { exact: true }).waitFor();
+        assert.equal(env.mailbox.length, before + 1);
+        assert.equal(await dialog.getByRole('button', { name: 'Reintentar email', exact: true }).count(), 0);
+        await capture(owner.page, 'owner-email-reintento-enviado.png');
+        await dialog.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+        await goto(seller, '?reportId=' + alertReport._id);
+        dialog = seller.page.getByRole('dialog');
+        await dialog.getByRole('heading', { name: alertTitle, exact: true }).waitFor();
+        assert.equal(await dialog.getByRole('region', { name: 'Aviso por email', exact: true }).count(), 0);
+        await dialog.getByRole('button', { name: 'Cerrar modal', exact: true }).click();
+    });
+    await test('an inaccessible linked report displays a retryable error without showing another author or ending the session', async () => {
+        await goto(reader, '?reportId=' + alertReport._id);
+        await reader.page.getByRole('heading', { name: 'No se pudo abrir el reporte', exact: true }).waitFor();
+        assert.equal(await reader.page.getByRole('dialog').count(), 0);
+        assert.equal(await reader.page.getByRole('heading', { name: alertTitle, exact: true }).count(), 0);
+        await auth(reader); await capture(reader.page, 'lectura-error-enlace-reporte-ajeno.png');
+    });
+    await test('a guest opening an email report link is sent to login with the exact protected destination preserved', async () => {
+        const guest = await surface(4, 390, false), target = '/admin/reportar-problema?reportId=' + alertReport._id;
+        await guest.page.goto(base + target, { waitUntil: 'domcontentloaded', timeout: 180000 });
+        await guest.page.waitForURL(url => url.pathname === '/login' && url.searchParams.get('next') === target, { timeout: 180000 });
+        assert.equal(await guest.page.getByRole('dialog').count(), 0);
+        assert.equal(await guest.page.evaluate(() => localStorage.getItem('token')), null);
+        await capture(guest.page, 'invitado-login-con-destino-reporte.png');
+    });
     assert.deepEqual(browserErrors, [], 'No uncaught browser errors');
-    assert.equal(env.mailbox.length, 0, 'Report QA must not send email');
+    assert.equal(env.mailbox.length, 4, 'Three creations and one explicit retry use the local mailbox only');
+    assert.ok(env.mailbox.every(message => message.to === process.env.SECURITY_ALERT_EMAIL), 'No external recipient is used');
     fs.writeFileSync(path.join(output, 'resultado.json'), JSON.stringify({ passed: true, groups: passed, fixtureOnly: true,
         realSubmissionAndPersistence: true, privatePngScreenshots: true, desktop1440: true, mobile390: true,
-        adminResponseVisibleToAuthor: true, temporaryErrorRetry: true, checkedAt: new Date().toISOString() }, null, 2));
+        adminResponseVisibleToAuthor: true, temporaryErrorRetry: true, ownerBellRefresh: true, linkedReportOutsideFilters: true,
+        emailDeliveryAndOwnerRetry: true, guestLoginPreservesReportLink: true, localMailboxOnly: true, checkedAt: new Date().toISOString() }, null, 2));
     console.log(`PASS: ${passed} isolated issue-report browser groups; synthetic sessions and loopback traffic only.`);
 } catch (error) {
     failure = error;

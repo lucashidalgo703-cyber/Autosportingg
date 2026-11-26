@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { gestoriaDocumentTarget } from '../utils/gestoriaDocumentLink';
 import { salePaymentProofTarget } from '../utils/salePaymentProofLink';
+import { issueReportTarget } from '../utils/issueReportLink';
 import { canAccessCrmPath, crmHomeFor } from '../utils/adminPermissions';
 
 const ProtectedRoute = ({ children }) => {
@@ -19,7 +20,7 @@ const ProtectedRoute = ({ children }) => {
         if (!isAuthenticated || !validateSession()) {
             logout();
             const requested = window.location.pathname + window.location.search;
-            const review = salePaymentProofTarget(requested) || gestoriaDocumentTarget(requested);
+            const review = issueReportTarget(requested) || salePaymentProofTarget(requested) || gestoriaDocumentTarget(requested);
             if (review) {
                 window.location.replace('/login?next=' + encodeURIComponent(review));
             } else if (window.location.pathname === '/admin/gastos/rapido') {

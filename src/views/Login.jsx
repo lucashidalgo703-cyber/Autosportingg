@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { gestoriaDocumentTarget } from '../utils/gestoriaDocumentLink';
 import { salePaymentProofTarget } from '../utils/salePaymentProofLink';
+import { issueReportTarget } from '../utils/issueReportLink';
 import { canAccessCrmPath, crmHomeFor } from '../utils/adminPermissions';
 import { KeyRound, Mail, ArrowLeft, Eye, EyeOff, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
 
@@ -166,7 +167,7 @@ const Login = () => {
     const tRedirect = setTimeout(() => {
       // Resume only these exact same-origin flows after the full email/TOTP login.
       const next = new URLSearchParams(window.location.search).get('next');
-      const requestedTarget = salePaymentProofTarget(next) || gestoriaDocumentTarget(next) || (next && /^(?:\/gpt\/autorizar|\/admin\/gastos\/rapido)(?:\?|$)/.test(next) ? next : null);
+      const requestedTarget = issueReportTarget(next) || salePaymentProofTarget(next) || gestoriaDocumentTarget(next) || (next && /^(?:\/gpt\/autorizar|\/admin\/gastos\/rapido)(?:\?|$)/.test(next) ? next : null);
       const target = requestedTarget && canAccessCrmPath(user, requestedTarget) ? requestedTarget : crmHomeFor(user);
       router.push(target);
     }, 1950);

@@ -159,7 +159,8 @@ try {
         check(await api(reader, 'POST', endpoint, base), 401);
         check(await api(reader, 'GET', endpoint), 401);
         check(await api(seller, 'GET', '/api/admin/auth/me'), 200);
-        assert.equal(env.mailbox.length, 0, 'report testing must not send mail');
+        assert.ok(env.mailbox.every(mail => mail.to === process.env.SECURITY_ALERT_EMAIL && /@example\.test$/.test(mail.to)),
+            'report notifications may only reach the synthetic administrator mailbox');
     });
     console.log(`PASS: ${passed} isolated issue-report scenarios; only synthetic users and loopback traffic.`);
 } finally {

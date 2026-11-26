@@ -1,6 +1,6 @@
 "use client";
 import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart, Star, Bug } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
@@ -14,7 +14,7 @@ const formatCurrency = (val) => new Intl.NumberFormat('es-AR').format(Math.round
 
 export default function CrmHeader({ onMenuClick }) {
     const { theme, toggleTheme } = useTheme();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const isSales = isSalesRole(user);
     const canSeeFinancials = hasPermission(user, PERMISSIONS.FINANZAS_READ);
 
@@ -31,6 +31,7 @@ export default function CrmHeader({ onMenuClick }) {
     const searchRef = useRef(null);
 
     const dropdownRef = useRef(null);
+    const notificationRequestRef = useRef(0);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -66,28 +67,38 @@ export default function CrmHeader({ onMenuClick }) {
         return () => clearTimeout(delayDebounceFn);
     }, [searchQuery, isSales, user]);
 
-    useEffect(() => {
-        if (!user) return;
-        let active = true;
-        const fetchNotifs = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-                const res = await fetch('/api/admin/notifications', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-                    const data = await res.json();
-                    if (active) setNotifications(Array.isArray(data) ? data : []);
-                }
-            } catch (error) {
-                console.error("Error fetching notifications", error);
+    const fetchNotifs = useCallback(async (signal) => {
+        if (!token) return;
+        const requestId = ++notificationRequestRef.current;
+        try {
+            const res = await fetch('/api/admin/notifications', {
+                headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal
+            });
+            if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+                const data = await res.json();
+                if (!signal?.aborted && requestId === notificationRequestRef.current) setNotifications(Array.isArray(data) ? data : []);
             }
+        } catch (error) {
+            if (error.name !== 'AbortError') console.error('Error fetching notifications', error);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (!user || !token) return;
+        const controller = new AbortController();
+        const refresh = () => { if (document.visibilityState === 'visible') void fetchNotifs(controller.signal); };
+        void fetchNotifs(controller.signal);
+        const interval = setInterval(refresh, user.role === 'owner' ? 60000 : 300000);
+        window.addEventListener('focus', refresh);
+        window.addEventListener('crm:notifications-changed', refresh);
+        document.addEventListener('visibilitychange', refresh);
+        return () => {
+            controller.abort(); clearInterval(interval);
+            window.removeEventListener('focus', refresh);
+            window.removeEventListener('crm:notifications-changed', refresh);
+            document.removeEventListener('visibilitychange', refresh);
         };
-        fetchNotifs();
-        const interval = setInterval(fetchNotifs, 300000);
-        return () => { active = false; clearInterval(interval); };
-    }, [user]);
+    }, [fetchNotifs, user, token]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -188,19 +199,30 @@ export default function CrmHeader({ onMenuClick }) {
     }).filter(notification => canAccessCrmPath(user, notification.href));
     const unreadCount = visibleNotifications.filter(n => !n.read).length;
 
-    const handleMarkAsRead = async (e, key) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const markNotificationRead = async (key) => {
         try {
-            const token = localStorage.getItem('token');
-            await fetch(`/api/admin/notifications/${key}/read`, {
+            const res = await fetch(`/api/admin/notifications/${encodeURIComponent(key)}/read`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (!res.ok) throw new Error('No se pudo marcar la notificación como leída.');
+            notificationRequestRef.current += 1;
             setNotifications(prev => prev.map(n => n.id === key ? { ...n, read: true } : n));
+            window.dispatchEvent(new Event('crm:notifications-changed'));
         } catch (err) {
-            console.error(err);
+            toast.error(err.message);
         }
+    };
+
+    const handleMarkAsRead = (e, key) => {
+        e.preventDefault(); e.stopPropagation();
+        void markNotificationRead(key);
+    };
+
+    const openNotification = (notification) => {
+        setShowDropdown(false);
+        if (!notification.read) void markNotificationRead(notification.id);
+        router.push(notification.href);
     };
 
     const handleMarkAllRead = async (e) => {
@@ -210,7 +232,7 @@ export default function CrmHeader({ onMenuClick }) {
             const token = localStorage.getItem('token');
             const unreadKeys = visibleNotifications.filter(n => !n.read).map(n => n.id);
             if (unreadKeys.length === 0) return;
-            await fetch(`/api/admin/notifications/read-all`, {
+            const res = await fetch(`/api/admin/notifications/read-all`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -218,9 +240,12 @@ export default function CrmHeader({ onMenuClick }) {
                 },
                 body: JSON.stringify({ keys: unreadKeys })
             });
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            if (!res.ok) throw new Error('No se pudieron marcar las notificaciones como leídas.');
+            notificationRequestRef.current += 1;
+            setNotifications(prev => prev.map(n => unreadKeys.includes(n.id) ? { ...n, read: true } : n));
+            window.dispatchEvent(new Event('crm:notifications-changed'));
         } catch (err) {
-            console.error(err);
+            toast.error(err.message);
         }
     };
 
@@ -344,9 +369,10 @@ export default function CrmHeader({ onMenuClick }) {
 
                     <button
                         type="button"
-                        onClick={() => setShowDropdown(!showDropdown)}
+                        onClick={() => { if (!showDropdown) void fetchNotifs(); setShowDropdown(!showDropdown); }}
                         className="relative m-0 flex h-10 w-10 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:h-9 md:w-9"
                         aria-label="Notificaciones"
+                        aria-expanded={showDropdown}
                     >
                         <Bell size={20} />
                         {unreadCount > 0 && (
@@ -375,7 +401,7 @@ export default function CrmHeader({ onMenuClick }) {
                                     <div className="p-4 text-center text-sm text-crm-fg-muted">No hay notificaciones.</div>
                                 ) : (
                                     visibleNotifications.slice(0, 10).map((n) => (
-                                        <div key={n.id} className={`group relative flex cursor-pointer gap-3 border-b border-crm-border p-3 ${n.read ? 'opacity-60' : 'bg-crm-surface-raised/30'}`} onClick={() => { setShowDropdown(false); router.push(n.href); }}>
+                                        <div key={n.id} role="link" tabIndex={0} className={`group relative flex cursor-pointer gap-3 border-b border-crm-border p-3 ${n.read ? 'opacity-60' : 'bg-crm-surface-raised/30'}`} onClick={() => openNotification(n)} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openNotification(n); } }}>
                                             <div className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${n.severity === 'danger' ? 'bg-crm-red-brand' : n.severity === 'warning' ? 'bg-crm-warning' : n.severity === 'success' ? 'bg-crm-success' : 'bg-crm-red'}`} />
                                             <div className="min-w-0 flex-1 pr-6">
                                                 <p className={`m-0 truncate text-xs font-bold ${n.read ? 'text-crm-fg-muted' : 'text-white'}`}>{n.title}</p>

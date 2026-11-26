@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import connectDB from '../config/db.js';
 import { authorizeIssueReports, createIssueReport, getIssueReport, listIssueReports, prepareIssueReportIndexes, readIssueReportAttachment, updateIssueReport } from '../services/issueReportService.js';
+import { retryIssueReportEmail } from '../services/issueReportNotificationService.js';
 
 const endpoint = callback => async (req, res) => {
     try {
@@ -42,6 +43,10 @@ export function createIssueReportRouter({ authenticate }) {
     }));
     router.get('/:id', endpoint(req => getIssueReport(req.user, req.params.id)));
     router.patch('/:id', endpoint(req => updateIssueReport(req.user, req.params.id, req.body)));
+    router.post('/:id/email/retry', endpoint(async req => {
+        await retryIssueReportEmail(req.user, req.params.id);
+        return getIssueReport(req.user, req.params.id);
+    }));
     router.get('/:id/attachments/:attachmentId', endpoint(async (req, res) => {
         const file = await readIssueReportAttachment(req.user, req.params.id, req.params.attachmentId);
         const extension = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' })[file.contentType];

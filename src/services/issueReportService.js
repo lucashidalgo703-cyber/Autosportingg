@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import IssueReport, { ISSUE_REPORT_CATEGORIES, ISSUE_REPORT_PRIORITIES, ISSUE_REPORT_STATUSES } from '../models/IssueReport.js';
 import { hasPermission, PERMISSIONS, ROLES } from '../utils/adminPermissions.js';
+import { deliverIssueReportEmail, issueReportEmailSummary, prepareIssueReportEmailNotification } from './issueReportNotificationService.js';
 
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const idOf = value => String(value?._id || value || '');
@@ -60,7 +61,7 @@ function inspectAttachment(file) {
     return { name, contentType, size: buffer.length, data: buffer };
 }
 const person = value => value?.name !== undefined ? { _id: idOf(value), name: value.name, email: value.email } : { _id: idOf(value), name: 'Usuario del CRM' };
-export function issueReportDto(report) {
+export function issueReportDto(report, user) {
     const value = typeof report?.toObject === 'function' ? report.toObject() : report;
     return {
         _id: idOf(value), title: value.title, description: value.description, category: value.category,
@@ -71,7 +72,8 @@ export function issueReportDto(report) {
             _id: idOf(file), name: file.name, contentType: file.contentType, size: file.size,
             url: `/api/admin/issue-reports/${idOf(value)}/attachments/${idOf(file)}`
         })),
-        comments: (value.comments || []).map(comment => ({ _id: idOf(comment), text: comment.text, author: person(comment.author), createdAt: comment.createdAt }))
+        comments: (value.comments || []).map(comment => ({ _id: idOf(comment), text: comment.text, author: person(comment.author), createdAt: comment.createdAt })),
+        ...(canManageIssueReports(user) ? { emailNotification: issueReportEmailSummary(value.emailNotification) } : {})
     };
 }
 export async function listIssueReports(user, query = {}) {
@@ -93,14 +95,14 @@ export async function listIssueReports(user, query = {}) {
             .populate('author', 'name email').sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
         IssueReport.countDocuments(filter)
     ]);
-    return { reports: reports.map(issueReportDto), total, page, pageSize: limit, canManage: canManageIssueReports(user) };
+    return { reports: reports.map(report => issueReportDto(report, user)), total, page, pageSize: limit, canManage: canManageIssueReports(user) };
 }
 export async function getIssueReport(user, id) {
     authorizeIssueReports(user);
     if (!validId(id)) fail('El identificador del reporte no es válido.');
     const report = await populate(IssueReport.findOne({ _id: id, ...scope(user) })).lean();
     if (!report) fail('Reporte no encontrado.', 404);
-    return issueReportDto(report);
+    return issueReportDto(report, user);
 }
 export async function createIssueReport(user, input = {}, files = []) {
     authorizeIssueReports(user);
@@ -116,8 +118,11 @@ export async function createIssueReport(user, input = {}, files = []) {
         expectedBehavior: text(input.expectedBehavior, 'el resultado esperado', 3000),
         actualBehavior: text(input.actualBehavior, 'el resultado actual', 3000),
         pageUrl: cleanPageUrl(input.pageUrl), author: actor(user), status: 'new',
-        attachments: files.map(inspectAttachment), comments: []
+        attachments: files.map(inspectAttachment), comments: [], emailNotification: prepareIssueReportEmailNotification()
     });
+    // The report and its durable delivery state already exist. SMTP failure must
+    // never make a successful report submission look unsuccessful to its author.
+    try { await deliverIssueReportEmail(idOf(report)); } catch { /* delivery remains observable in the persisted state */ }
     return getIssueReport(user, idOf(report));
 }
 export async function updateIssueReport(user, id, input = {}) {

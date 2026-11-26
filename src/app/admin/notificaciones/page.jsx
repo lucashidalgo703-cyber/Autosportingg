@@ -38,11 +38,13 @@ export default function NotificationsPage() {
     const handleMarkAsRead = async (key) => {
         try {
             const token = localStorage.getItem('token');
-            await fetch(`/api/admin/notifications/${key}/read`, {
+            const res = await fetch(`/api/admin/notifications/${encodeURIComponent(key)}/read`, {
                 method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (!res.ok) return;
             setNotifications(prev => prev.map(n => n.id === key ? { ...n, read: true } : n));
+            window.dispatchEvent(new Event('crm:notifications-changed'));
         } catch (err) {
             console.error(err);
         }
@@ -53,7 +55,7 @@ export default function NotificationsPage() {
             const token = localStorage.getItem('token');
             const unreadKeys = notifications.filter(n => !n.read).map(n => n.id);
             if (unreadKeys.length === 0) return;
-            await fetch(`/api/admin/notifications/read-all`, {
+            const res = await fetch(`/api/admin/notifications/read-all`, {
                 method: 'PATCH',
                 headers: { 
                     'Authorization': `Bearer ${token}`,
@@ -61,7 +63,9 @@ export default function NotificationsPage() {
                 },
                 body: JSON.stringify({ keys: unreadKeys })
             });
+            if (!res.ok) return;
             setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            window.dispatchEvent(new Event('crm:notifications-changed'));
         } catch (err) {
             console.error(err);
         }
@@ -123,6 +127,7 @@ export default function NotificationsPage() {
             <div className="bg-crm-bg border border-crm-border rounded-xl p-4 mb-6 flex flex-wrap gap-4 items-center">
                 <Filter size={16} className="text-crm-fg-muted" />
                 <select 
+                    aria-label="Estado de notificaciones"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
                     className="bg-crm-surface border border-crm-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
@@ -132,6 +137,7 @@ export default function NotificationsPage() {
                     <option value="read">Leídas</option>
                 </select>
                 <select 
+                    aria-label="Severidad de notificaciones"
                     value={filterSeverity}
                     onChange={(e) => setFilterSeverity(e.target.value)}
                     className="bg-crm-surface border border-crm-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
@@ -142,6 +148,7 @@ export default function NotificationsPage() {
                     <option value="info">Informativa</option>
                 </select>
                 <select 
+                    aria-label="Módulo de notificaciones"
                     value={filterModule}
                     onChange={(e) => setFilterModule(e.target.value)}
                     className="bg-crm-surface border border-crm-border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
@@ -152,6 +159,7 @@ export default function NotificationsPage() {
                     <option value="documentacion">Documentación</option>
                     <option value="postventa">Postventa</option>
                     <option value="reservas">Reservas</option>
+                    {user.role === 'owner' && <option value="fallas">Fallas del CRM</option>}
                     {['owner', 'admin'].includes(user.role) && <option value="auditoria">Auditoría</option>}
                 </select>
             </div>
@@ -202,6 +210,7 @@ export default function NotificationsPage() {
                                 )}
                                 <Link 
                                     href={n.href}
+                                    onClick={() => { if (!n.read) void handleMarkAsRead(n.id); }}
                                     className="px-4 py-2 bg-crm-surface hover:bg-crm-surface-raised border border-crm-border rounded-lg text-white text-xs font-bold transition-colors"
                                 >
                                     Ver Módulo
